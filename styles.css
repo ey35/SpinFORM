@@ -143,13 +143,18 @@ body {
     left: 0;
     top: 0;
     width: var(--sidebar-width);
-    height: calc(100vh - var(--player-height));
+    height: 100vh;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     z-index: 100;
     backdrop-filter: blur(20px);
+    transition: height 0.3s ease;
+}
+
+.sidebar.player-active {
+    height: calc(100vh - var(--player-height));
 }
 
 .sidebar-header {
@@ -283,11 +288,18 @@ body {
    =================================== */
 .main-content {
     margin-left: var(--sidebar-width);
-    height: calc(100vh - var(--player-height));
+    height: 100vh;
     overflow-y: auto;
     background: transparent;
     position: relative;
     z-index: 1;
+    padding-bottom: 0;
+    transition: padding-bottom 0.3s ease;
+}
+
+.main-content.player-active {
+    height: calc(100vh - var(--player-height));
+    padding-bottom: 0;
 }
 
 .content-header {
@@ -497,6 +509,30 @@ body {
     transition: transform 0.3s ease;
 }
 
+.song-artwork-container {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.song-artwork-overlay-small {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.song-artwork-container:hover .song-artwork-overlay-small {
+    opacity: 1;
+}
+
 .song-item:hover .song-artwork {
     transform: scale(1.05);
 }
@@ -627,6 +663,32 @@ body {
     background: var(--bg-tertiary);
     box-shadow: var(--shadow-md);
     transition: transform 0.3s ease;
+}
+
+.album-artwork-container {
+    position: relative;
+    margin-bottom: 1.25rem;
+}
+
+.album-artwork-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.album-artwork-container:hover .album-artwork-overlay {
+    opacity: 1;
+}
+
+.album-artwork-container:hover .album-artwork {
+    transform: scale(1.02);
 }
 
 .album-card:hover .album-artwork {
@@ -1170,6 +1232,7 @@ body {
 
 .player.hidden {
     transform: translateY(100%);
+    display: none;
 }
 
 .player-track-info {
