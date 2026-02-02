@@ -4,8 +4,34 @@
 const SUPABASE_URL = 'https://xarkfpnknrrlbragmrcl.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhcmtmcG5rbnJybGJyYWdtcmNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNjM5ODMsImV4cCI6MjA4NTYzOTk4M30.5akqqycJUOmpoON2adRwogq_0NmzsiJp7fb3CDb53aQ';
 
-// Initialize Supabase client
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Supabase client (initialized later when CDN script is available)
+let supabaseClient = null;
+
+// Initialize Supabase safely — wait/poll for the CDN-provided `window.supabase`
+async function initSupabase() {
+    if (supabaseClient) return;
+
+    const wait = (ms) => new Promise(res => setTimeout(res, ms));
+
+    // If the SDK is already present, create client immediately
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        return;
+    }
+
+    // Poll for a short time for the SDK to load (5s)
+    const maxAttempts = 50; // 50 * 100ms = 5s
+    for (let i = 0; i < maxAttempts; i++) {
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            return;
+        }
+        await wait(100);
+    }
+
+    // If we get here, the Supabase SDK isn't available — throw so caller can handle it
+    throw new Error('Supabase client SDK not found (window.supabase). Make sure the CDN script is loaded before this script or increase the wait time.');
+}
 
 // ===================================
 // STATE MANAGEMENT
@@ -46,6 +72,20 @@ window.addEventListener('load', () => {
 document.addEventListener('DOMContentLoaded', async () => {
     AppState.colorThief = new ColorThief();
     
+    // Initialize Supabase client (wait for SDK) before auth check
+    try {
+        await initSupabase();
+    } catch (err) {
+        console.error('Supabase init failed:', err);
+        // Still show auth screen (handlers won't be able to call supabase until SDK loads)
+        showAuthScreen();
+        setupEventListeners();
+        renderCurrentView();
+        updateStorageInfo();
+        setupDragAndDrop();
+        return;
+    }
+
     // Check authentication
     await checkAuth();
     
@@ -59,6 +99,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 // AUTHENTICATION
 // ===================================
 async function checkAuth() {
+    if (!supabaseClient) {
+        throw new Error('Supabase client not initialized when checking auth.');
+    }
+
     const { data: { session } } = await supabaseClient.auth.getSession();
     
     if (session) {
@@ -133,9 +177,17 @@ async function handleLogin(e) {
     
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    
+
     console.log('Attempting login...');
-    
+
+    try {
+        await initSupabase();
+    } catch (err) {
+        console.error('Supabase not ready for login:', err);
+        showToast('Auth service not available. Try again later.', 'error');
+        return;
+    }
+
     const { data, error } = await supabaseClient.auth.signInWithPassword({
         email,
         password
@@ -162,7 +214,15 @@ async function handleSignup(e) {
     const password = document.getElementById('signup-password').value;
     
     console.log('Attempting signup...');
-    
+
+    try {
+        await initSupabase();
+    } catch (err) {
+        console.error('Supabase not ready for signup:', err);
+        showToast('Auth service not available. Try again later.', 'error');
+        return;
+    }
+
     // Sign up with Supabase Auth
     const { data, error } = await supabaseClient.auth.signUp({
         email,
