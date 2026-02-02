@@ -1,674 +1,570 @@
-// SpinForm - Music Player JavaScript
-
+// MixLab - Music Mixing Laboratory
 // Global Variables
+let tracks = [];
 let audioContext;
-let currentTrack = null;
-let playlist = [];
-let currentTrackIndex = 0;
-let isPlaying = false;
-let selectedFormat = 'vinyl';
+let masterGainNode;
+let currentModal = null;
+let soloMode = false;
 
 // DOM Elements
-const uploadModal = document.getElementById('uploadModal');
-const uploadBtn = document.getElementById('uploadBtn');
-const heroUploadBtn = document.getElementById('heroUploadBtn');
-const closeModal = document.getElementById('closeModal');
-const uploadZone = document.getElementById('uploadZone');
+const uploadZoneSection = document.getElementById('uploadZoneSection');
+const labInterface = document.getElementById('labInterface');
+const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const browseBtn = document.getElementById('browseBtn');
-const fileList = document.getElementById('fileList');
-const startPlayingBtn = document.getElementById('startPlayingBtn');
-const playerSection = document.getElementById('player');
-const audioPlayer = document.getElementById('audioPlayer');
-const mainPlayBtn = document.getElementById('mainPlayBtn');
-const playPauseBtn = document.getElementById('playPauseBtn');
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
-const shuffleBtn = document.getElementById('shuffleBtn');
-const closePlayer = document.getElementById('closePlayer');
-const progressFill = document.getElementById('progressFill');
-const progressHandle = document.getElementById('progressHandle');
-const currentTimeEl = document.getElementById('currentTime');
-const totalTimeEl = document.getElementById('totalTime');
-const volumeSlider = document.getElementById('volumeSlider');
-const trackName = document.getElementById('trackName');
-const artistName = document.getElementById('artistName');
-const customizeBtn = document.getElementById('customizeBtn');
-const customizationSidebar = document.getElementById('customizationSidebar');
-const closeSidebar = document.getElementById('closeSidebar');
-const exploreBtn = document.getElementById('exploreBtn');
+const addSlotBtn = document.getElementById('addSlotBtn');
+const slotsContainer = document.getElementById('slotsContainer');
+const consoleTracks = document.getElementById('consoleTracks');
+const masterVolume = document.getElementById('masterVolume');
+const masterVolumeValue = document.getElementById('masterVolumeValue');
+const playAllBtn = document.getElementById('playAllBtn');
+const stopAllBtn = document.getElementById('stopAllBtn');
+const soloModeBtn = document.getElementById('soloModeBtn');
+const exportBtn = document.getElementById('exportBtn');
+const trackModal = document.getElementById('trackModal');
+const modalOverlay = document.getElementById('modalOverlay');
+const closeModal = document.getElementById('closeModal');
+const removeTrackBtn = document.getElementById('removeTrackBtn');
+const applySettingsBtn = document.getElementById('applySettingsBtn');
+const toast = document.getElementById('toast');
+const masterVisualizer = document.getElementById('masterVisualizer');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    initializeDustParticles();
-    initializeGrooves();
+    initializeAudio();
     setupEventListeners();
-    setupGalleryFilters();
+    createParticles();
+    setupVisualizer();
 });
 
-// Create floating dust particles
-function initializeDustParticles() {
-    const dustContainer = document.getElementById('dustContainer');
-    const particleCount = 30;
-
-    for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'dust-particle';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.top = Math.random() * 100 + '%';
-        particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
-        particle.style.animationDelay = Math.random() * 5 + 's';
-        dustContainer.appendChild(particle);
-    }
+// Initialize Audio Context
+function initializeAudio() {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    masterGainNode = audioContext.createGain();
+    masterGainNode.connect(audioContext.destination);
+    masterGainNode.gain.value = 0.8;
 }
 
-// Create vinyl grooves
-function initializeGrooves() {
-    const groovesContainer = document.getElementById('grooves');
-    const grooveCount = 30;
-
-    for (let i = 0; i < grooveCount; i++) {
-        const groove = document.createElement('div');
-        groove.className = 'groove';
-        const size = 50 + (i * 8);
-        groove.style.width = size + 'px';
-        groove.style.height = size + 'px';
-        groovesContainer.appendChild(groove);
+// Create Floating Particles
+function createParticles() {
+    const particlesContainer = document.getElementById('particles');
+    const particleCount = 20;
+    
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.style.position = 'absolute';
+        particle.style.width = Math.random() * 4 + 2 + 'px';
+        particle.style.height = particle.style.width;
+        particle.style.background = 'rgba(108, 92, 231, 0.3)';
+        particle.style.borderRadius = '50%';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.top = Math.random() * 100 + '%';
+        particle.style.animation = `float ${Math.random() * 10 + 10}s linear infinite`;
+        particle.style.animationDelay = Math.random() * 5 + 's';
+        particlesContainer.appendChild(particle);
     }
+    
+    // Add float animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes float {
+            0% { transform: translate(0, 0); opacity: 0.3; }
+            50% { transform: translate(${Math.random() * 100 - 50}px, ${Math.random() * 100 - 50}px); opacity: 0.6; }
+            100% { transform: translate(0, 0); opacity: 0.3; }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 // Setup Event Listeners
 function setupEventListeners() {
-    // Upload Modal
-    uploadBtn.addEventListener('click', () => openUploadModal());
-    heroUploadBtn.addEventListener('click', () => openUploadModal());
-    closeModal.addEventListener('click', () => closeUploadModal());
-    
-    // Click outside to close
-    uploadModal.addEventListener('click', (e) => {
-        if (e.target === uploadModal) {
-            closeUploadModal();
-        }
-    });
-
     // File Upload
     browseBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', handleFileSelect);
     
     // Drag and Drop
-    uploadZone.addEventListener('dragover', handleDragOver);
-    uploadZone.addEventListener('dragleave', handleDragLeave);
-    uploadZone.addEventListener('drop', handleDrop);
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', handleDragOver);
+    dropZone.addEventListener('dragleave', handleDragLeave);
+    dropZone.addEventListener('drop', handleDrop);
     
-    // Format Selection
-    const formatRadios = document.querySelectorAll('input[name="format"]');
-    formatRadios.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            selectedFormat = e.target.value;
-        });
+    // Add Slot
+    addSlotBtn.addEventListener('click', () => fileInput.click());
+    
+    // Master Controls
+    masterVolume.addEventListener('input', (e) => {
+        const value = e.target.value;
+        masterVolumeValue.textContent = value + '%';
+        masterGainNode.gain.value = value / 100;
     });
     
-    // Start Playing
-    startPlayingBtn.addEventListener('click', startPlaying);
+    playAllBtn.addEventListener('click', playAll);
+    stopAllBtn.addEventListener('click', stopAll);
+    soloModeBtn.addEventListener('click', toggleSoloMode);
+    exportBtn.addEventListener('click', exportMix);
     
-    // Player Controls
-    mainPlayBtn.addEventListener('click', togglePlay);
-    playPauseBtn.addEventListener('click', togglePlay);
-    prevBtn.addEventListener('click', playPrevious);
-    nextBtn.addEventListener('click', playNext);
-    shuffleBtn.addEventListener('click', shufflePlaylist);
-    closePlayer.addEventListener('click', closePlayerSection);
-    
-    // Audio Player Events
-    audioPlayer.addEventListener('timeupdate', updateProgress);
-    audioPlayer.addEventListener('ended', playNext);
-    audioPlayer.addEventListener('loadedmetadata', updateDuration);
-    
-    // Volume Control
-    volumeSlider.addEventListener('input', (e) => {
-        audioPlayer.volume = e.target.value / 100;
-    });
-    
-    // Progress Bar
-    const progressBar = document.querySelector('.progress-bar');
-    progressBar.addEventListener('click', seekTo);
-    
-    // Customization
-    customizeBtn.addEventListener('click', () => {
-        customizationSidebar.classList.add('active');
-    });
-    
-    closeSidebar.addEventListener('click', () => {
-        customizationSidebar.classList.remove('active');
-    });
-    
-    // Color Selection
-    const colorBtns = document.querySelectorAll('.color-btn');
-    colorBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            colorBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            changeVinylColor(btn.dataset.color);
-        });
-    });
-    
-    // Label Text
-    const labelTextInput = document.getElementById('labelText');
-    labelTextInput.addEventListener('input', (e) => {
-        updateLabelText(e.target.value);
-    });
-    
-    // Wear Slider
-    const wearSlider = document.getElementById('wearSlider');
-    wearSlider.addEventListener('input', (e) => {
-        document.querySelector('.slider-value').textContent = e.target.value + '%';
-        applyWear(e.target.value);
-    });
-    
-    // Audio Effects
-    document.getElementById('crackleToggle').addEventListener('change', toggleCrackle);
-    document.getElementById('motorToggle').addEventListener('change', toggleMotor);
-    
-    // Cover Art Upload
-    const uploadCoverBtn = document.getElementById('uploadCoverBtn');
-    const coverArtInput = document.getElementById('coverArtInput');
-    
-    uploadCoverBtn.addEventListener('click', () => coverArtInput.click());
-    coverArtInput.addEventListener('change', handleCoverArtUpload);
-    
-    // Explore Gallery
-    exploreBtn.addEventListener('click', () => {
-        document.getElementById('gallery').scrollIntoView({ behavior: 'smooth' });
-    });
-    
-    // Format Cards
-    const formatCards = document.querySelectorAll('.format-card');
-    formatCards.forEach(card => {
-        card.addEventListener('click', () => {
-            selectedFormat = card.dataset.format;
-            showFormatDemo(selectedFormat);
-        });
-    });
-}
-
-// Upload Modal Functions
-function openUploadModal() {
-    uploadModal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeUploadModal() {
-    uploadModal.classList.remove('active');
-    document.body.style.overflow = 'auto';
+    // Modal
+    closeModal.addEventListener('click', closeTrackModal);
+    modalOverlay.addEventListener('click', closeTrackModal);
+    applySettingsBtn.addEventListener('click', applyModalSettings);
+    removeTrackBtn.addEventListener('click', removeCurrentTrack);
 }
 
 // File Handling
 function handleFileSelect(e) {
     const files = Array.from(e.target.files);
-    addFilesToPlaylist(files);
+    processFiles(files);
+    fileInput.value = ''; // Reset input
 }
 
 function handleDragOver(e) {
     e.preventDefault();
-    uploadZone.classList.add('dragover');
+    dropZone.classList.add('dragover');
 }
 
 function handleDragLeave(e) {
     e.preventDefault();
-    uploadZone.classList.remove('dragover');
+    dropZone.classList.remove('dragover');
 }
 
 function handleDrop(e) {
     e.preventDefault();
-    uploadZone.classList.remove('dragover');
+    dropZone.classList.remove('dragover');
     
-    const files = Array.from(e.dataTransfer.files);
-    const audioFiles = files.filter(file => file.type.startsWith('audio/'));
-    addFilesToPlaylist(audioFiles);
+    const files = Array.from(e.dataTransfer.files).filter(file => 
+        file.type.startsWith('audio/')
+    );
+    
+    if (files.length > 0) {
+        processFiles(files);
+    } else {
+        showToast('⚠️', 'Please drop audio files only');
+    }
 }
 
-function addFilesToPlaylist(files) {
+// Process Audio Files
+function processFiles(files) {
     files.forEach(file => {
-        if (file.type.startsWith('audio/')) {
-            playlist.push({
-                file: file,
-                name: file.name.replace(/\.[^/.]+$/, ""),
-                url: URL.createObjectURL(file)
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            audioContext.decodeAudioData(e.target.result, (buffer) => {
+                addTrack(file.name, buffer);
+            }, (error) => {
+                console.error('Error decoding audio:', error);
+                showToast('❌', `Failed to load: ${file.name}`);
             });
-        }
-    });
-    
-    updateFileList();
-    
-    if (playlist.length > 0) {
-        startPlayingBtn.disabled = false;
-    }
-}
-
-function updateFileList() {
-    fileList.innerHTML = '';
-    
-    playlist.forEach((track, index) => {
-        const fileItem = document.createElement('div');
-        fileItem.className = 'file-item';
-        fileItem.innerHTML = `
-            <span class="file-item-name">${track.name}</span>
-            <button class="file-item-remove" onclick="removeTrack(${index})">×</button>
-        `;
-        fileList.appendChild(fileItem);
+        };
+        
+        reader.readAsArrayBuffer(file);
     });
 }
 
-function removeTrack(index) {
-    URL.revokeObjectURL(playlist[index].url);
-    playlist.splice(index, 1);
-    updateFileList();
-    
-    if (playlist.length === 0) {
-        startPlayingBtn.disabled = true;
-    }
-}
-
-// Player Functions
-function startPlaying() {
-    if (playlist.length === 0) return;
-    
-    closeUploadModal();
-    playerSection.classList.add('active');
-    
-    // Scroll to player
-    setTimeout(() => {
-        playerSection.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-    
-    loadTrack(0);
-}
-
-function loadTrack(index) {
-    if (index < 0 || index >= playlist.length) return;
-    
-    currentTrackIndex = index;
-    currentTrack = playlist[index];
-    
-    audioPlayer.src = currentTrack.url;
-    trackName.textContent = currentTrack.name;
-    artistName.textContent = 'SpinForm Player';
-    
-    // Update album art
-    const albumArt = document.getElementById('albumArt');
-    albumArt.textContent = getFormatIcon(selectedFormat);
-    
-    if (isPlaying) {
-        audioPlayer.play();
-    }
-}
-
-function getFormatIcon(format) {
-    const icons = {
-        vinyl: '💿',
-        cassette: '📼',
-        cd: '💽',
-        '8track': '🎵',
-        minidisc: '💾',
-        reel: '🎞️'
+// Add Track
+function addTrack(name, buffer) {
+    const track = {
+        id: Date.now() + Math.random(),
+        name: name.replace(/\.[^/.]+$/, ""),
+        buffer: buffer,
+        duration: buffer.duration,
+        source: null,
+        gainNode: null,
+        panNode: null,
+        isPlaying: false,
+        volume: 100,
+        pan: 0,
+        rate: 1,
+        startTime: 0,
+        pauseTime: 0
     };
-    return icons[format] || '🎵';
-}
-
-function togglePlay() {
-    if (!currentTrack) {
-        if (playlist.length > 0) {
-            loadTrack(0);
-        } else {
-            return;
-        }
+    
+    // Create audio nodes
+    track.gainNode = audioContext.createGain();
+    track.panNode = audioContext.createStereoPanner();
+    
+    track.gainNode.connect(track.panNode);
+    track.panNode.connect(masterGainNode);
+    
+    tracks.push(track);
+    
+    // Show lab interface if first track
+    if (tracks.length === 1) {
+        uploadZoneSection.style.display = 'none';
+        labInterface.classList.add('active');
     }
     
-    if (isPlaying) {
-        audioPlayer.pause();
-        isPlaying = false;
-        mainPlayBtn.textContent = '▶';
-        playPauseBtn.textContent = '▶';
-        document.querySelector('.player-vinyl-record').classList.add('paused');
-        document.querySelector('.player-tonearm').classList.remove('playing');
+    renderTracks();
+    showToast('✅', `Added: ${track.name}`);
+    
+    if (tracks.length >= 2) {
+        exportBtn.disabled = false;
+    }
+}
+
+// Render Tracks
+function renderTracks() {
+    // Render slots
+    slotsContainer.innerHTML = '';
+    tracks.forEach(track => {
+        const slot = document.createElement('div');
+        slot.className = 'track-slot active';
+        slot.innerHTML = `
+            <div class="track-info">
+                <div class="track-name">${track.name}</div>
+                <div class="track-duration">${formatTime(track.duration)}</div>
+                <div class="track-controls">
+                    <button class="track-btn play-track-btn" data-id="${track.id}">
+                        ${track.isPlaying ? '⏸️' : '▶️'}
+                    </button>
+                    <button class="track-btn" data-id="${track.id}" onclick="openTrackModal('${track.id}')">⚙️</button>
+                </div>
+            </div>
+        `;
+        slotsContainer.appendChild(slot);
+    });
+    
+    // Add play button listeners
+    document.querySelectorAll('.play-track-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const trackId = parseFloat(btn.dataset.id);
+            toggleTrack(trackId);
+        });
+    });
+    
+    // Render console
+    consoleTracks.innerHTML = '';
+    tracks.forEach(track => {
+        const consoleTrack = document.createElement('div');
+        consoleTrack.className = 'console-track';
+        consoleTrack.innerHTML = `
+            <div class="console-track-name">${track.name}</div>
+            <div class="console-controls">
+                <div class="control-group">
+                    <label class="control-label">Volume</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" data-id="${track.id}" data-control="volume" min="0" max="100" value="${track.volume}">
+                        <span class="slider-value">${track.volume}%</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Pan</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" data-id="${track.id}" data-control="pan" min="-100" max="100" value="${track.pan}">
+                        <span class="slider-value">${getPanLabel(track.pan)}</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Rate</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" data-id="${track.id}" data-control="rate" min="50" max="200" value="${track.rate * 100}">
+                        <span class="slider-value">${track.rate * 100}%</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        consoleTracks.appendChild(consoleTrack);
+    });
+    
+    // Add console control listeners
+    document.querySelectorAll('.console-track .slider').forEach(slider => {
+        slider.addEventListener('input', handleConsoleControl);
+    });
+}
+
+// Handle Console Controls
+function handleConsoleControl(e) {
+    const trackId = parseFloat(e.target.dataset.id);
+    const control = e.target.dataset.control;
+    const value = parseFloat(e.target.value);
+    const track = tracks.find(t => t.id === trackId);
+    
+    if (!track) return;
+    
+    const valueSpan = e.target.parentElement.querySelector('.slider-value');
+    
+    switch(control) {
+        case 'volume':
+            track.volume = value;
+            track.gainNode.gain.value = value / 100;
+            valueSpan.textContent = value + '%';
+            break;
+        case 'pan':
+            track.pan = value;
+            track.panNode.pan.value = value / 100;
+            valueSpan.textContent = getPanLabel(value);
+            break;
+        case 'rate':
+            track.rate = value / 100;
+            if (track.source) {
+                track.source.playbackRate.value = track.rate;
+            }
+            valueSpan.textContent = value + '%';
+            break;
+    }
+}
+
+function getPanLabel(value) {
+    if (value === 0) return 'Center';
+    if (value < 0) return `L ${Math.abs(value)}`;
+    return `R ${value}`;
+}
+
+// Track Playback
+function toggleTrack(trackId) {
+    const track = tracks.find(t => t.id === trackId);
+    if (!track) return;
+    
+    if (track.isPlaying) {
+        pauseTrack(track);
     } else {
-        audioPlayer.play();
-        isPlaying = true;
-        mainPlayBtn.textContent = '⏸';
-        playPauseBtn.textContent = '⏸';
-        document.querySelector('.player-vinyl-record').classList.remove('paused');
-        document.querySelector('.player-tonearm').classList.add('playing');
+        playTrack(track);
     }
+    
+    renderTracks();
 }
 
-function playPrevious() {
-    if (currentTrackIndex > 0) {
-        loadTrack(currentTrackIndex - 1);
-        if (isPlaying) {
-            audioPlayer.play();
-        }
+function playTrack(track) {
+    // Stop existing source if any
+    if (track.source) {
+        track.source.stop();
     }
+    
+    // Create new source
+    track.source = audioContext.createBufferSource();
+    track.source.buffer = track.buffer;
+    track.source.playbackRate.value = track.rate;
+    track.source.connect(track.gainNode);
+    
+    // Resume from pause point
+    const offset = track.pauseTime;
+    track.source.start(0, offset);
+    track.startTime = audioContext.currentTime - offset;
+    track.isPlaying = true;
+    
+    track.source.onended = () => {
+        if (track.isPlaying) {
+            track.isPlaying = false;
+            track.pauseTime = 0;
+            track.source = null;
+            renderTracks();
+        }
+    };
 }
 
-function playNext() {
-    if (currentTrackIndex < playlist.length - 1) {
-        loadTrack(currentTrackIndex + 1);
-        if (isPlaying) {
-            audioPlayer.play();
+function pauseTrack(track) {
+    if (track.source) {
+        track.pauseTime = audioContext.currentTime - track.startTime;
+        track.source.stop();
+        track.source = null;
+    }
+    track.isPlaying = false;
+}
+
+function playAll() {
+    tracks.forEach(track => {
+        if (!track.isPlaying) {
+            playTrack(track);
         }
+    });
+    renderTracks();
+    showToast('▶️', 'Playing all tracks');
+}
+
+function stopAll() {
+    tracks.forEach(track => {
+        if (track.isPlaying) {
+            pauseTrack(track);
+        }
+        track.pauseTime = 0;
+    });
+    renderTracks();
+    showToast('⏹️', 'Stopped all tracks');
+}
+
+function toggleSoloMode() {
+    soloMode = !soloMode;
+    soloModeBtn.classList.toggle('active');
+    showToast('🎧', soloMode ? 'Solo mode ON' : 'Solo mode OFF');
+}
+
+// Track Modal
+function openTrackModal(trackId) {
+    const track = tracks.find(t => t.id === parseFloat(trackId));
+    if (!track) return;
+    
+    currentModal = track;
+    
+    document.getElementById('modalTrackName').textContent = track.name;
+    document.getElementById('modalDuration').textContent = formatTime(track.duration);
+    
+    const modalVolume = document.getElementById('modalVolume');
+    const modalPan = document.getElementById('modalPan');
+    const modalRate = document.getElementById('modalRate');
+    
+    modalVolume.value = track.volume;
+    modalPan.value = track.pan;
+    modalRate.value = track.rate * 100;
+    
+    document.getElementById('modalVolumeValue').textContent = track.volume + '%';
+    document.getElementById('modalPanValue').textContent = getPanLabel(track.pan);
+    document.getElementById('modalRateValue').textContent = (track.rate * 100) + '%';
+    
+    // Add listeners
+    modalVolume.oninput = (e) => {
+        document.getElementById('modalVolumeValue').textContent = e.target.value + '%';
+    };
+    modalPan.oninput = (e) => {
+        document.getElementById('modalPanValue').textContent = getPanLabel(e.target.value);
+    };
+    modalRate.oninput = (e) => {
+        document.getElementById('modalRateValue').textContent = e.target.value + '%';
+    };
+    
+    trackModal.classList.add('active');
+}
+
+window.openTrackModal = openTrackModal;
+
+function closeTrackModal() {
+    trackModal.classList.remove('active');
+    currentModal = null;
+}
+
+function applyModalSettings() {
+    if (!currentModal) return;
+    
+    const modalVolume = document.getElementById('modalVolume');
+    const modalPan = document.getElementById('modalPan');
+    const modalRate = document.getElementById('modalRate');
+    
+    currentModal.volume = parseFloat(modalVolume.value);
+    currentModal.pan = parseFloat(modalPan.value);
+    currentModal.rate = parseFloat(modalRate.value) / 100;
+    
+    currentModal.gainNode.gain.value = currentModal.volume / 100;
+    currentModal.panNode.pan.value = currentModal.pan / 100;
+    
+    if (currentModal.source) {
+        currentModal.source.playbackRate.value = currentModal.rate;
+    }
+    
+    renderTracks();
+    closeTrackModal();
+    showToast('✅', 'Settings applied');
+}
+
+function removeCurrentTrack() {
+    if (!currentModal) return;
+    
+    const trackIndex = tracks.findIndex(t => t.id === currentModal.id);
+    if (trackIndex === -1) return;
+    
+    // Stop if playing
+    if (currentModal.isPlaying) {
+        pauseTrack(currentModal);
+    }
+    
+    // Remove from array
+    tracks.splice(trackIndex, 1);
+    
+    // Check if need to show upload screen
+    if (tracks.length === 0) {
+        labInterface.classList.remove('active');
+        uploadZoneSection.style.display = 'flex';
+        exportBtn.disabled = true;
     } else {
-        // Loop back to first track
-        loadTrack(0);
-        if (isPlaying) {
-            audioPlayer.play();
+        renderTracks();
+        if (tracks.length < 2) {
+            exportBtn.disabled = true;
         }
     }
+    
+    closeTrackModal();
+    showToast('🗑️', 'Track removed');
 }
 
-function shufflePlaylist() {
-    for (let i = playlist.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [playlist[i], playlist[j]] = [playlist[j], playlist[i]];
+// Export Mix
+function exportMix() {
+    showToast('💾', 'Mix export feature coming soon!');
+    // In a real implementation, this would record the mixed audio
+}
+
+// Visualizer
+function setupVisualizer() {
+    const canvas = masterVisualizer;
+    const ctx = canvas.getContext('2d');
+    
+    function resize() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
     }
     
-    loadTrack(0);
-    updateFileList();
+    resize();
+    window.addEventListener('resize', resize);
     
-    // Visual feedback
-    shuffleBtn.style.transform = 'rotate(360deg)';
+    function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw some animated bars
+        const barCount = 32;
+        const barWidth = canvas.width / barCount;
+        
+        for (let i = 0; i < barCount; i++) {
+            const height = Math.random() * canvas.height * 0.8;
+            const hue = (i / barCount) * 360;
+            
+            ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.6)`;
+            ctx.fillRect(
+                i * barWidth,
+                canvas.height - height,
+                barWidth - 2,
+                height
+            );
+        }
+        
+        requestAnimationFrame(draw);
+    }
+    
+    draw();
+}
+
+// Toast Notification
+function showToast(icon, message) {
+    const toastIcon = document.getElementById('toastIcon');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    toastIcon.textContent = icon;
+    toastMessage.textContent = message;
+    
+    toast.classList.add('active');
+    
     setTimeout(() => {
-        shuffleBtn.style.transform = 'rotate(0deg)';
-    }, 500);
+        toast.classList.remove('active');
+    }, 3000);
 }
 
-function closePlayerSection() {
-    playerSection.classList.remove('active');
-    audioPlayer.pause();
-    isPlaying = false;
-    mainPlayBtn.textContent = '▶';
-    playPauseBtn.textContent = '▶';
-}
-
-// Progress and Time
-function updateProgress() {
-    const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-    progressFill.style.width = progress + '%';
-    progressHandle.style.left = progress + '%';
-    
-    currentTimeEl.textContent = formatTime(audioPlayer.currentTime);
-}
-
-function updateDuration() {
-    totalTimeEl.textContent = formatTime(audioPlayer.duration);
-}
-
+// Utility
 function formatTime(seconds) {
-    if (isNaN(seconds)) return '0:00';
-    
+    if (!seconds || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-function seekTo(e) {
-    const progressBar = e.currentTarget;
-    const rect = progressBar.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    audioPlayer.currentTime = pos * audioPlayer.duration;
-}
-
-// Customization Functions
-function changeVinylColor(color) {
-    const vinylRecord = document.querySelector('.player-vinyl-record');
-    
-    const colorGradients = {
-        black: 'radial-gradient(circle at 30% 30%, #2a2a2a 0%, #0a0a0a 50%, #000000 100%)',
-        red: 'radial-gradient(circle at 30% 30%, #ff6b6b 0%, #ff3b3b 50%, #cc0000 100%)',
-        blue: 'radial-gradient(circle at 30% 30%, #6b8fff 0%, #3b5bff 50%, #0033cc 100%)',
-        purple: 'radial-gradient(circle at 30% 30%, #c06bff 0%, #a03bff 50%, #7700cc 100%)',
-        clear: 'radial-gradient(circle at 30% 30%, rgba(240, 240, 240, 0.3) 0%, rgba(200, 200, 200, 0.3) 50%, rgba(160, 160, 160, 0.3) 100%)'
-    };
-    
-    vinylRecord.style.background = colorGradients[color];
-}
-
-function updateLabelText(text) {
-    const labels = document.querySelectorAll('.vinyl-label, .player-vinyl-label');
-    labels.forEach(label => {
-        // Only update text labels, not icon labels
-        if (!label.querySelector('span')) {
-            label.textContent = text || 'SPINFORM RECORDS';
-        }
-    });
-}
-
-function applyWear(value) {
-    const vinylRecord = document.querySelector('.player-vinyl-record');
-    const opacity = value / 200; // Max 50% opacity for wear effect
-    
-    // Add scratches and dust
-    vinylRecord.style.boxShadow = `
-        inset 0 0 100px rgba(0, 0, 0, ${0.8 + opacity}),
-        0 10px 40px rgba(0, 0, 0, 0.9),
-        inset 0 0 0 2px rgba(255, 255, 255, ${0.03 + opacity})
-    `;
-}
-
-function toggleCrackle(e) {
-    // In a real implementation, this would add/remove crackle audio effect
-    console.log('Vinyl crackle:', e.target.checked ? 'ON' : 'OFF');
-    
-    if (e.target.checked) {
-        // Add subtle crackle sound effect
-        showNotification('Vinyl crackle enabled');
-    } else {
-        showNotification('Vinyl crackle disabled');
-    }
-}
-
-function toggleMotor(e) {
-    // In a real implementation, this would add/remove motor hum
-    console.log('Motor hum:', e.target.checked ? 'ON' : 'OFF');
-    
-    if (e.target.checked) {
-        showNotification('Motor hum enabled');
-    } else {
-        showNotification('Motor hum disabled');
-    }
-}
-
-function handleCoverArtUpload(e) {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        
-        reader.onload = (event) => {
-            const albumArt = document.getElementById('albumArt');
-            albumArt.innerHTML = `<img src="${event.target.result}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
-            showNotification('Cover art updated');
-        };
-        
-        reader.readAsDataURL(file);
-    }
-}
-
-// Gallery Filters
-function setupGalleryFilters() {
-    const filterBtns = document.querySelectorAll('.filter-btn');
-    const galleryItems = document.querySelectorAll('.gallery-item');
-    
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const filter = btn.dataset.filter;
-            
-            // Update active button
-            filterBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            // Filter items
-            galleryItems.forEach(item => {
-                if (filter === 'all' || item.dataset.format === filter) {
-                    item.style.display = 'block';
-                    setTimeout(() => {
-                        item.style.opacity = '1';
-                        item.style.transform = 'translateY(0)';
-                    }, 10);
-                } else {
-                    item.style.opacity = '0';
-                    item.style.transform = 'translateY(20px)';
-                    setTimeout(() => {
-                        item.style.display = 'none';
-                    }, 300);
-                }
-            });
-        });
-    });
-    
-    // Gallery item click
-    galleryItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const format = item.dataset.format;
-            showNotification(`Opening ${format} player...`);
-        });
-    });
-}
-
-// Format Demo
-function showFormatDemo(format) {
-    showNotification(`Loading ${format} player...`);
-    
-    // Scroll to features or player section
-    document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
-}
-
-// Notification System
-function showNotification(message) {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        background: linear-gradient(135deg, var(--accent-gold), #ffd700);
-        color: var(--bg-primary);
-        padding: 1rem 2rem;
-        border-radius: 8px;
-        font-family: 'IBM Plex Mono', monospace;
-        font-weight: 600;
-        z-index: 3000;
-        box-shadow: 0 10px 30px rgba(212, 175, 55, 0.4);
-        animation: slideInRight 0.3s ease-out;
-    `;
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        notification.style.animation = 'slideOutRight 0.3s ease-out';
-        setTimeout(() => {
-            notification.remove();
-        }, 300);
-    }, 3000);
-}
-
-// Add notification animations
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideInRight {
-        from {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-    
-    @keyframes slideOutRight {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-    }
-`;
-document.head.appendChild(style);
-
 // Keyboard Shortcuts
 document.addEventListener('keydown', (e) => {
-    // Space bar to play/pause
     if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
         e.preventDefault();
-        togglePlay();
-    }
-    
-    // Arrow keys for next/previous
-    if (e.code === 'ArrowRight') {
-        playNext();
-    }
-    
-    if (e.code === 'ArrowLeft') {
-        playPrevious();
-    }
-    
-    // Escape to close modals/sidebars
-    if (e.code === 'Escape') {
-        closeUploadModal();
-        customizationSidebar.classList.remove('active');
-    }
-});
-
-// Smooth scroll for navigation links
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth' });
+        if (tracks.length > 0) {
+            const anyPlaying = tracks.some(t => t.isPlaying);
+            if (anyPlaying) {
+                stopAll();
+            } else {
+                playAll();
+            }
         }
-    });
+    }
 });
 
-// Initialize audio context on first user interaction
-document.addEventListener('click', () => {
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
-}, { once: true });
-
-// Export Functions (for sharing and export features)
-function generateShareableLink() {
-    // In a real implementation, this would generate a unique URL
-    const link = `https://spinform.app/player/${Date.now()}`;
-    
-    navigator.clipboard.writeText(link).then(() => {
-        showNotification('Link copied to clipboard!');
-    });
-}
-
-function exportVideo() {
-    showNotification('Preparing video export... This may take a moment.');
-    
-    // In a real implementation, this would use canvas recording
-    setTimeout(() => {
-        showNotification('Video export ready for download!');
-    }, 2000);
-}
-
-// Add export button listeners
-const exportBtn = document.getElementById('exportBtn');
-if (exportBtn) {
-    exportBtn.addEventListener('click', () => {
-        showNotification('Export options coming soon!');
-    });
-}
-
-// Console welcome message
-console.log('%c🎵 SpinForm ', 'font-size: 20px; font-weight: bold; color: #d4af37;');
-console.log('%cMusic, made physical again.', 'font-size: 14px; color: #a0a0a0;');
-console.log('Built with love for music and nostalgia.');
+console.log('🧪 MixLab initialized - Ready to mix!');
