@@ -99,59 +99,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 // AUTHENTICATION
 // ===================================
 async function checkAuth() {
-    if (!supabaseClient) {
-        throw new Error('Supabase client not initialized when checking auth.');
+    // Accounts have been removed. Use a local default user so the app loads immediately.
+    AppState.currentUser = {
+        id: 'local-user',
+        email: 'local@local'
+    };
+
+    try {
+        await loadFromSupabase();
+    } catch (err) {
+        // If loading from Supabase fails, continue with an empty library
+        console.warn('loadFromSupabase failed (auth removed):', err);
     }
 
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    
-    if (session) {
-        AppState.currentUser = session.user;
-        await loadFromSupabase();
-        showApp();
-    } else {
-        showAuthScreen();
-    }
+    showApp();
 }
 
 function showAuthScreen() {
-    const authHTML = `
-        <div class="auth-screen" id="auth-screen">
-            <div class="auth-container">
-                <div class="auth-logo">
-                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-                        <circle cx="40" cy="40" r="35" stroke="#1DB954" stroke-width="3"/>
-                        <path d="M30 35 L30 45 M35 32 L35 48 M40 28 L40 52 M45 32 L45 48 M50 35 L50 45" stroke="#1DB954" stroke-width="3" stroke-linecap="round"/>
-                    </svg>
-                </div>
-                <h1>Welcome to MusicVault</h1>
-                <p>Your personal music library in the cloud</p>
-                
-                <div class="auth-tabs">
-                    <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
-                    <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
-                </div>
-                
-                <form id="login-form" class="auth-form">
-                    <input type="email" id="login-email" placeholder="Email" required>
-                    <input type="password" id="login-password" placeholder="Password" required>
-                    <button type="submit" class="btn-primary">Login</button>
-                </form>
-                
-                <form id="signup-form" class="auth-form" style="display: none;">
-                    <input type="text" id="signup-username" placeholder="Username" required>
-                    <input type="email" id="signup-email" placeholder="Email" required>
-                    <input type="password" id="signup-password" placeholder="Password (min 6 characters)" required>
-                    <button type="submit" class="btn-primary">Create Account</button>
-                </form>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', authHTML);
-    
-    document.getElementById('login-form').addEventListener('submit', handleLogin);
-    document.getElementById('signup-form').addEventListener('submit', handleSignup);
+    // Accounts removed: do not render auth UI.
+    return;
 }
 
 window.switchAuthTab = function(tab) {
@@ -171,131 +137,24 @@ window.switchAuthTab = function(tab) {
         tabs[1].classList.add('active');
     }
 };
-
 async function handleLogin(e) {
-    e.preventDefault();
-    
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-
-    console.log('Attempting login...');
-
-    try {
-        await initSupabase();
-    } catch (err) {
-        console.error('Supabase not ready for login:', err);
-        showToast('Auth service not available. Try again later.', 'error');
-        return;
-    }
-
-    const loginBtn = document.querySelector('#login-form button[type="submit"]');
-    if (loginBtn) loginBtn.disabled = true;
-
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password
-    });
-
-    if (loginBtn) loginBtn.disabled = false;
-    
-    if (error) {
-        console.error('Login error:', error);
-        // Helpful message for unconfirmed email
-        if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
-            showToast('Email not confirmed. Check your inbox (or spam) for a confirmation link.', 'error');
-        } else {
-            showToast(error.message || 'Login failed', 'error');
-        }
-    } else {
-        console.log('Login successful:', data);
-        AppState.currentUser = data.user;
-        await loadFromSupabase();
-        hideAuthScreen();
-        showApp();
-        showToast('Welcome back!', 'success');
-    }
+    // Accounts removed: simulate login by setting a local user and entering app
+    if (e && e.preventDefault) e.preventDefault();
+    AppState.currentUser = { id: 'local-user', email: 'local@local' };
+    try { await loadFromSupabase(); } catch (err) { /* ignore */ }
+    hideAuthScreen();
+    showApp();
+    showToast('Signed in (local)', 'success');
 }
 
 async function handleSignup(e) {
-    e.preventDefault();
-    
-    const username = document.getElementById('signup-username').value;
-    const email = document.getElementById('signup-email').value;
-    const password = document.getElementById('signup-password').value;
-    
-    console.log('Attempting signup...');
-
-    const signupBtn = document.querySelector('#signup-form button[type="submit"]');
-    const originalText = signupBtn ? signupBtn.textContent : 'Create Account';
-
-    try {
-        await initSupabase();
-    } catch (err) {
-        console.error('Supabase not ready for signup:', err);
-        showToast('Auth service not available. Try again later.', 'error');
-        return;
-    }
-
-    // Disable button to avoid repeated requests
-    if (signupBtn) {
-        signupBtn.disabled = true;
-        signupBtn.textContent = 'Creating...';
-    }
-
-    // Sign up with Supabase Auth
-    const { data, error } = await supabaseClient.auth.signUp({
-        email,
-        password,
-        options: {
-            data: {
-                username: username,
-                display_name: username
-            }
-        }
-    });
-
-    if (error) {
-        console.error('Signup error:', error);
-        // Handle Supabase rate limiting / security timer (429)
-        const msg = error.message || '';
-        if (msg.toLowerCase().includes('for security purposes') || (error.status === 429)) {
-            showToast('Too many signup attempts. Please wait 60 seconds and try again.', 'error');
-            // start 60s cooldown on button
-            startButtonCooldown(signupBtn, 60, originalText);
-            return;
-        }
-
-        if (signupBtn) {
-            signupBtn.disabled = false;
-            signupBtn.textContent = originalText;
-        }
-
-        showToast(msg || 'Signup failed', 'error');
-        return;
-    }
-
-    console.log('Signup successful:', data);
-
-    // Check if email confirmation is required
-    if (data.user && !data.session) {
-        if (signupBtn) {
-            signupBtn.disabled = false;
-            signupBtn.textContent = originalText;
-        }
-        showToast('Please check your email to confirm your account!', 'success');
-        return;
-    }
-
-    if (data.user) {
-        AppState.currentUser = data.user;
-        if (signupBtn) {
-            signupBtn.disabled = false;
-            signupBtn.textContent = originalText;
-        }
-        hideAuthScreen();
-        showApp();
-        showToast('Account created! Welcome to MusicVault!', 'success');
-    }
+    // Accounts removed: simulate signup by setting a local user and entering app
+    if (e && e.preventDefault) e.preventDefault();
+    AppState.currentUser = { id: 'local-user', email: 'local@local' };
+    try { await loadFromSupabase(); } catch (err) { /* ignore */ }
+    hideAuthScreen();
+    showApp();
+    showToast('Account created (local)', 'success');
 }
 
 function hideAuthScreen() {
@@ -309,7 +168,7 @@ function showApp() {
 }
 
 async function logout() {
-    await supabaseClient.auth.signOut();
+    // Accounts removed: just clear local state
     AppState.currentUser = null;
     AppState.songs = [];
     AppState.albums = {};
