@@ -2,13 +2,14 @@
 // SUPABASE CONFIGURATION
 // ===================================
 const SUPABASE_URL = 'https://xarkfpnknrrlbragmrcl.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhh';
+const SUPABASE_ANON_KEY = 'YOUR_COMPLETE_ANON_KEY_HERE'; // Make sure this is complete
 
 let supabase = null;
 
 // Initialize Supabase
 async function initSupabase() {
-    const { createClient } = supabase;
+    // Get createClient from the global supabase object loaded from CDN
+    const { createClient } = window.supabase;
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
