@@ -1,159 +1,225 @@
-// MixLab - Music Mixing Laboratory
-// Global Variables
-let tracks = [];
-let audioContext;
-let masterGainNode;
-let currentModal = null;
-let soloMode = false;
+// MixLab - Fully Functional Music Mixing Laboratory
 
-// DOM Elements
-const uploadZoneSection = document.getElementById('uploadZoneSection');
-const labInterface = document.getElementById('labInterface');
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const browseBtn = document.getElementById('browseBtn');
-const addSlotBtn = document.getElementById('addSlotBtn');
-const slotsContainer = document.getElementById('slotsContainer');
-const consoleTracks = document.getElementById('consoleTracks');
-const masterVolume = document.getElementById('masterVolume');
-const masterVolumeValue = document.getElementById('masterVolumeValue');
-const playAllBtn = document.getElementById('playAllBtn');
-const stopAllBtn = document.getElementById('stopAllBtn');
-const soloModeBtn = document.getElementById('soloModeBtn');
-const exportBtn = document.getElementById('exportBtn');
-const trackModal = document.getElementById('trackModal');
-const modalOverlay = document.getElementById('modalOverlay');
-const closeModal = document.getElementById('closeModal');
-const removeTrackBtn = document.getElementById('removeTrackBtn');
-const applySettingsBtn = document.getElementById('applySettingsBtn');
-const toast = document.getElementById('toast');
-const masterVisualizer = document.getElementById('masterVisualizer');
+// Global State
+const state = {
+    tracks: [],
+    audioContext: null,
+    masterGainNode: null,
+    analyser: null,
+    isInitialized: false,
+    currentModalTrack: null,
+    animationId: null
+};
 
-// Initialize
+// Initialize on load
 document.addEventListener('DOMContentLoaded', () => {
-    initializeAudio();
+    console.log('🧪 MixLab initializing...');
     setupEventListeners();
     createParticles();
-    setupVisualizer();
 });
 
-// Initialize Audio Context
-function initializeAudio() {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    masterGainNode = audioContext.createGain();
-    masterGainNode.connect(audioContext.destination);
-    masterGainNode.gain.value = 0.8;
-}
-
-// Create Floating Particles
-function createParticles() {
-    const particlesContainer = document.getElementById('particles');
-    const particleCount = 20;
+// Initialize Audio Context (on first user interaction)
+function initAudioContext() {
+    if (state.isInitialized) return;
     
-    for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        particle.style.position = 'absolute';
-        particle.style.width = Math.random() * 4 + 2 + 'px';
-        particle.style.height = particle.style.width;
-        particle.style.background = 'rgba(108, 92, 231, 0.3)';
-        particle.style.borderRadius = '50%';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.top = Math.random() * 100 + '%';
-        particle.style.animation = `float ${Math.random() * 10 + 10}s linear infinite`;
-        particle.style.animationDelay = Math.random() * 5 + 's';
-        particlesContainer.appendChild(particle);
+    try {
+        state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        state.masterGainNode = state.audioContext.createGain();
+        state.masterGainNode.gain.value = 0.8;
+        
+        // Create analyser for visualization
+        state.analyser = state.audioContext.createAnalyser();
+        state.analyser.fftSize = 256;
+        
+        state.masterGainNode.connect(state.analyser);
+        state.analyser.connect(state.audioContext.destination);
+        
+        state.isInitialized = true;
+        console.log('✅ Audio context initialized');
+        
+        startVisualization();
+        updateStatus('Mixing Active');
+    } catch (error) {
+        console.error('Failed to initialize audio context:', error);
+        showToast('❌', 'Failed to initialize audio system');
     }
-    
-    // Add float animation
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes float {
-            0% { transform: translate(0, 0); opacity: 0.3; }
-            50% { transform: translate(${Math.random() * 100 - 50}px, ${Math.random() * 100 - 50}px); opacity: 0.6; }
-            100% { transform: translate(0, 0); opacity: 0.3; }
-        }
-    `;
-    document.head.appendChild(style);
 }
 
-// Setup Event Listeners
+// Event Listeners Setup
 function setupEventListeners() {
-    // File Upload
-    browseBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', handleFileSelect);
+    // File upload
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const browseBtn = document.getElementById('browseBtn');
+    const addMoreBtn = document.getElementById('addMoreBtn');
     
-    // Drag and Drop
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', handleDragOver);
-    dropZone.addEventListener('dragleave', handleDragLeave);
-    dropZone.addEventListener('drop', handleDrop);
-    
-    // Add Slot
-    addSlotBtn.addEventListener('click', () => fileInput.click());
-    
-    // Master Controls
-    masterVolume.addEventListener('input', (e) => {
-        const value = e.target.value;
-        masterVolumeValue.textContent = value + '%';
-        masterGainNode.gain.value = value / 100;
+    browseBtn.addEventListener('click', () => {
+        initAudioContext();
+        fileInput.click();
     });
     
-    playAllBtn.addEventListener('click', playAll);
-    stopAllBtn.addEventListener('click', stopAll);
-    soloModeBtn.addEventListener('click', toggleSoloMode);
-    exportBtn.addEventListener('click', exportMix);
+    addMoreBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
     
-    // Modal
+    fileInput.addEventListener('change', handleFileSelect);
+    
+    // Drag and drop
+    dropZone.addEventListener('click', (e) => {
+        if (e.target === dropZone || e.target.closest('.drop-zone-content')) {
+            initAudioContext();
+            fileInput.click();
+        }
+    });
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        initAudioContext();
+        handleDrop(e);
+    });
+    
+    // Master controls
+    const masterVolume = document.getElementById('masterVolume');
+    const playAllBtn = document.getElementById('playAllBtn');
+    const pauseAllBtn = document.getElementById('pauseAllBtn');
+    const stopAllBtn = document.getElementById('stopAllBtn');
+    
+    masterVolume.addEventListener('input', (e) => {
+        const value = e.target.value / 100;
+        if (state.masterGainNode) {
+            state.masterGainNode.gain.value = value;
+        }
+        document.getElementById('masterVolumeValue').textContent = e.target.value + '%';
+    });
+    
+    playAllBtn.addEventListener('click', playAllTracks);
+    pauseAllBtn.addEventListener('click', pauseAllTracks);
+    stopAllBtn.addEventListener('click', stopAllTracks);
+    
+    // Modal controls
+    const closeModal = document.getElementById('closeModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const removeTrackBtn = document.getElementById('removeTrackBtn');
+    
     closeModal.addEventListener('click', closeTrackModal);
+    closeModalBtn.addEventListener('click', closeTrackModal);
     modalOverlay.addEventListener('click', closeTrackModal);
-    applySettingsBtn.addEventListener('click', applyModalSettings);
     removeTrackBtn.addEventListener('click', removeCurrentTrack);
+    
+    // Modal sliders
+    setupModalControls();
+}
+
+// Setup Modal Controls
+function setupModalControls() {
+    const modalVolume = document.getElementById('modalVolume');
+    const modalPan = document.getElementById('modalPan');
+    const modalRate = document.getElementById('modalRate');
+    const modalLoop = document.getElementById('modalLoop');
+    
+    modalVolume.addEventListener('input', (e) => {
+        document.getElementById('modalVolumeDisplay').textContent = e.target.value + '%';
+        if (state.currentModalTrack) {
+            state.currentModalTrack.volume = parseInt(e.target.value);
+            state.currentModalTrack.gainNode.gain.value = e.target.value / 100;
+        }
+    });
+    
+    modalPan.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        const label = value === 0 ? 'Center' : value < 0 ? `L${Math.abs(value)}` : `R${value}`;
+        document.getElementById('modalPanDisplay').textContent = label;
+        if (state.currentModalTrack && state.currentModalTrack.panNode) {
+            state.currentModalTrack.pan = value;
+            state.currentModalTrack.panNode.pan.value = value / 100;
+        }
+    });
+    
+    modalRate.addEventListener('input', (e) => {
+        const rate = e.target.value / 100;
+        document.getElementById('modalRateDisplay').textContent = rate.toFixed(2) + 'x';
+        if (state.currentModalTrack) {
+            state.currentModalTrack.playbackRate = rate;
+            if (state.currentModalTrack.source) {
+                state.currentModalTrack.source.playbackRate.value = rate;
+            }
+        }
+    });
+    
+    modalLoop.addEventListener('change', (e) => {
+        if (state.currentModalTrack) {
+            state.currentModalTrack.loop = e.target.checked;
+            if (state.currentModalTrack.source) {
+                state.currentModalTrack.source.loop = e.target.checked;
+            }
+        }
+    });
 }
 
 // File Handling
 function handleFileSelect(e) {
     const files = Array.from(e.target.files);
     processFiles(files);
-    fileInput.value = ''; // Reset input
-}
-
-function handleDragOver(e) {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-}
-
-function handleDragLeave(e) {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
 }
 
 function handleDrop(e) {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    
-    const files = Array.from(e.dataTransfer.files).filter(file => 
-        file.type.startsWith('audio/')
-    );
-    
-    if (files.length > 0) {
-        processFiles(files);
-    } else {
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('audio/'));
+    if (files.length === 0) {
         showToast('⚠️', 'Please drop audio files only');
+        return;
     }
+    processFiles(files);
 }
 
-// Process Audio Files
+// Process Files
 function processFiles(files) {
-    files.forEach(file => {
+    showLoadingModal('Processing audio files...');
+    
+    let processed = 0;
+    const total = files.length;
+    
+    files.forEach((file) => {
         const reader = new FileReader();
         
         reader.onload = (e) => {
-            audioContext.decodeAudioData(e.target.result, (buffer) => {
-                addTrack(file.name, buffer);
-            }, (error) => {
-                console.error('Error decoding audio:', error);
-                showToast('❌', `Failed to load: ${file.name}`);
-            });
+            state.audioContext.decodeAudioData(
+                e.target.result,
+                (buffer) => {
+                    addTrack(file.name, buffer);
+                    processed++;
+                    if (processed === total) {
+                        hideLoadingModal();
+                        showToast('✅', `Added ${total} track${total > 1 ? 's' : ''}`);
+                    }
+                },
+                (error) => {
+                    console.error('Decode error:', error);
+                    processed++;
+                    showToast('❌', `Failed to load: ${file.name}`);
+                    if (processed === total) {
+                        hideLoadingModal();
+                    }
+                }
+            );
+        };
+        
+        reader.onerror = () => {
+            processed++;
+            showToast('❌', `Error reading: ${file.name}`);
+            if (processed === total) {
+                hideLoadingModal();
+            }
         };
         
         reader.readAsArrayBuffer(file);
@@ -161,157 +227,134 @@ function processFiles(files) {
 }
 
 // Add Track
-function addTrack(name, buffer) {
+function addTrack(filename, buffer) {
     const track = {
         id: Date.now() + Math.random(),
-        name: name.replace(/\.[^/.]+$/, ""),
+        name: filename.replace(/\.[^/.]+$/, ''),
         buffer: buffer,
         duration: buffer.duration,
         source: null,
         gainNode: null,
         panNode: null,
         isPlaying: false,
+        isPaused: false,
         volume: 100,
         pan: 0,
-        rate: 1,
+        playbackRate: 1,
+        loop: false,
         startTime: 0,
-        pauseTime: 0
+        pauseOffset: 0
     };
     
     // Create audio nodes
-    track.gainNode = audioContext.createGain();
-    track.panNode = audioContext.createStereoPanner();
+    track.gainNode = state.audioContext.createGain();
+    track.gainNode.gain.value = 1;
     
+    track.panNode = state.audioContext.createStereoPanner();
+    track.panNode.pan.value = 0;
+    
+    // Connect: gain -> pan -> master
     track.gainNode.connect(track.panNode);
-    track.panNode.connect(masterGainNode);
+    track.panNode.connect(state.masterGainNode);
     
-    tracks.push(track);
+    state.tracks.push(track);
     
-    // Show lab interface if first track
-    if (tracks.length === 1) {
-        uploadZoneSection.style.display = 'none';
-        labInterface.classList.add('active');
+    // Show interface if first track
+    if (state.tracks.length === 1) {
+        document.getElementById('uploadZoneSection').style.display = 'none';
+        document.getElementById('labInterface').classList.add('active');
     }
     
-    renderTracks();
-    showToast('✅', `Added: ${track.name}`);
-    
-    if (tracks.length >= 2) {
-        exportBtn.disabled = false;
-    }
+    renderUI();
 }
 
-// Render Tracks
-function renderTracks() {
-    // Render slots
-    slotsContainer.innerHTML = '';
-    tracks.forEach(track => {
+// Render UI
+function renderUI() {
+    renderTrackSlots();
+    renderConsole();
+    updateTrackCount();
+}
+
+function updateTrackCount() {
+    document.getElementById('trackCount').textContent = state.tracks.length;
+}
+
+function renderTrackSlots() {
+    const container = document.getElementById('slotsContainer');
+    container.innerHTML = '';
+    
+    state.tracks.forEach(track => {
         const slot = document.createElement('div');
-        slot.className = 'track-slot active';
+        slot.className = 'track-slot' + (track.isPlaying ? ' playing' : '');
         slot.innerHTML = `
             <div class="track-info">
                 <div class="track-name">${track.name}</div>
                 <div class="track-duration">${formatTime(track.duration)}</div>
+                <div class="track-status ${track.isPlaying ? '' : 'paused'}">
+                    ${track.isPlaying ? '▶ Playing' : '⏸ Paused'}
+                </div>
                 <div class="track-controls">
-                    <button class="track-btn play-track-btn" data-id="${track.id}">
+                    <button class="track-btn" onclick="toggleTrack('${track.id}')" title="${track.isPlaying ? 'Pause' : 'Play'}">
                         ${track.isPlaying ? '⏸️' : '▶️'}
                     </button>
-                    <button class="track-btn" data-id="${track.id}" onclick="openTrackModal('${track.id}')">⚙️</button>
+                    <button class="track-btn" onclick="stopTrack('${track.id}')" title="Stop">
+                        ⏹️
+                    </button>
+                    <button class="track-btn" onclick="openTrackSettings('${track.id}')" title="Settings">
+                        ⚙️
+                    </button>
                 </div>
             </div>
         `;
-        slotsContainer.appendChild(slot);
+        container.appendChild(slot);
     });
+}
+
+function renderConsole() {
+    const container = document.getElementById('consoleTracks');
+    container.innerHTML = '';
     
-    // Add play button listeners
-    document.querySelectorAll('.play-track-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const trackId = parseFloat(btn.dataset.id);
-            toggleTrack(trackId);
-        });
-    });
-    
-    // Render console
-    consoleTracks.innerHTML = '';
-    tracks.forEach(track => {
+    state.tracks.forEach(track => {
         const consoleTrack = document.createElement('div');
         consoleTrack.className = 'console-track';
         consoleTrack.innerHTML = `
-            <div class="console-track-name">${track.name}</div>
+            <div class="console-track-header">
+                <div class="console-track-name">${track.name}</div>
+            </div>
             <div class="console-controls">
                 <div class="control-group">
                     <label class="control-label">Volume</label>
                     <div class="slider-container">
-                        <input type="range" class="slider" data-id="${track.id}" data-control="volume" min="0" max="100" value="${track.volume}">
-                        <span class="slider-value">${track.volume}%</span>
+                        <input type="range" class="slider" min="0" max="100" value="${track.volume}" 
+                               onchange="updateTrackVolume('${track.id}', this.value)">
+                        <span class="slider-value" id="vol-${track.id}">${track.volume}%</span>
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label">Pan</label>
+                    <label class="control-label">Pan (L/R)</label>
                     <div class="slider-container">
-                        <input type="range" class="slider" data-id="${track.id}" data-control="pan" min="-100" max="100" value="${track.pan}">
-                        <span class="slider-value">${getPanLabel(track.pan)}</span>
+                        <input type="range" class="slider" min="-100" max="100" value="${track.pan}"
+                               onchange="updateTrackPan('${track.id}', this.value)">
+                        <span class="slider-value" id="pan-${track.id}">${formatPan(track.pan)}</span>
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label">Rate</label>
+                    <label class="control-label">Speed</label>
                     <div class="slider-container">
-                        <input type="range" class="slider" data-id="${track.id}" data-control="rate" min="50" max="200" value="${track.rate * 100}">
-                        <span class="slider-value">${track.rate * 100}%</span>
+                        <input type="range" class="slider" min="25" max="200" value="${track.playbackRate * 100}" step="25"
+                               onchange="updateTrackRate('${track.id}', this.value)">
+                        <span class="slider-value" id="rate-${track.id}">${track.playbackRate.toFixed(2)}x</span>
                     </div>
                 </div>
             </div>
         `;
-        consoleTracks.appendChild(consoleTrack);
-    });
-    
-    // Add console control listeners
-    document.querySelectorAll('.console-track .slider').forEach(slider => {
-        slider.addEventListener('input', handleConsoleControl);
+        container.appendChild(consoleTrack);
     });
 }
 
-// Handle Console Controls
-function handleConsoleControl(e) {
-    const trackId = parseFloat(e.target.dataset.id);
-    const control = e.target.dataset.control;
-    const value = parseFloat(e.target.value);
-    const track = tracks.find(t => t.id === trackId);
-    
-    if (!track) return;
-    
-    const valueSpan = e.target.parentElement.querySelector('.slider-value');
-    
-    switch(control) {
-        case 'volume':
-            track.volume = value;
-            track.gainNode.gain.value = value / 100;
-            valueSpan.textContent = value + '%';
-            break;
-        case 'pan':
-            track.pan = value;
-            track.panNode.pan.value = value / 100;
-            valueSpan.textContent = getPanLabel(value);
-            break;
-        case 'rate':
-            track.rate = value / 100;
-            if (track.source) {
-                track.source.playbackRate.value = track.rate;
-            }
-            valueSpan.textContent = value + '%';
-            break;
-    }
-}
-
-function getPanLabel(value) {
-    if (value === 0) return 'Center';
-    if (value < 0) return `L ${Math.abs(value)}`;
-    return `R ${value}`;
-}
-
-// Track Playback
-function toggleTrack(trackId) {
-    const track = tracks.find(t => t.id === trackId);
+// Track Control Functions (exposed globally)
+window.toggleTrack = function(trackId) {
+    const track = findTrack(trackId);
     if (!track) return;
     
     if (track.isPlaying) {
@@ -319,223 +362,300 @@ function toggleTrack(trackId) {
     } else {
         playTrack(track);
     }
-    
-    renderTracks();
-}
+    renderUI();
+};
 
-function playTrack(track) {
-    // Stop existing source if any
+window.stopTrack = function(trackId) {
+    const track = findTrack(trackId);
+    if (!track) return;
+    
     if (track.source) {
         track.source.stop();
+        track.source.disconnect();
+        track.source = null;
     }
     
-    // Create new source
-    track.source = audioContext.createBufferSource();
-    track.source.buffer = track.buffer;
-    track.source.playbackRate.value = track.rate;
-    track.source.connect(track.gainNode);
+    track.isPlaying = false;
+    track.isPaused = false;
+    track.pauseOffset = 0;
+    track.startTime = 0;
     
-    // Resume from pause point
-    const offset = track.pauseTime;
-    track.source.start(0, offset);
-    track.startTime = audioContext.currentTime - offset;
-    track.isPlaying = true;
+    renderUI();
+    showToast('⏹️', `Stopped: ${track.name}`);
+};
+
+window.openTrackSettings = function(trackId) {
+    const track = findTrack(trackId);
+    if (!track) return;
     
-    track.source.onended = () => {
-        if (track.isPlaying) {
-            track.isPlaying = false;
-            track.pauseTime = 0;
-            track.source = null;
-            renderTracks();
+    state.currentModalTrack = track;
+    
+    // Update modal content
+    document.getElementById('modalTrackName').textContent = track.name;
+    document.getElementById('modalDuration').textContent = formatTime(track.duration);
+    document.getElementById('modalStatus').textContent = track.isPlaying ? 'Playing' : 'Stopped';
+    
+    document.getElementById('modalVolume').value = track.volume;
+    document.getElementById('modalVolumeDisplay').textContent = track.volume + '%';
+    
+    document.getElementById('modalPan').value = track.pan;
+    document.getElementById('modalPanDisplay').textContent = formatPan(track.pan);
+    
+    document.getElementById('modalRate').value = track.playbackRate * 100;
+    document.getElementById('modalRateDisplay').textContent = track.playbackRate.toFixed(2) + 'x';
+    
+    document.getElementById('modalLoop').checked = track.loop;
+    
+    document.getElementById('trackModal').classList.add('active');
+};
+
+window.updateTrackVolume = function(trackId, value) {
+    const track = findTrack(trackId);
+    if (!track) return;
+    
+    track.volume = parseInt(value);
+    track.gainNode.gain.value = value / 100;
+    document.getElementById(`vol-${trackId}`).textContent = value + '%';
+};
+
+window.updateTrackPan = function(trackId, value) {
+    const track = findTrack(trackId);
+    if (!track) return;
+    
+    track.pan = parseInt(value);
+    track.panNode.pan.value = value / 100;
+    document.getElementById(`pan-${trackId}`).textContent = formatPan(value);
+};
+
+window.updateTrackRate = function(trackId, value) {
+    const track = findTrack(trackId);
+    if (!track) return;
+    
+    const rate = value / 100;
+    track.playbackRate = rate;
+    if (track.source) {
+        track.source.playbackRate.value = rate;
+    }
+    document.getElementById(`rate-${trackId}`).textContent = rate.toFixed(2) + 'x';
+};
+
+// Playback Functions
+function playTrack(track) {
+    try {
+        // Stop existing source
+        if (track.source) {
+            track.source.stop();
+            track.source.disconnect();
         }
-    };
+        
+        // Create new source
+        track.source = state.audioContext.createBufferSource();
+        track.source.buffer = track.buffer;
+        track.source.playbackRate.value = track.playbackRate;
+        track.source.loop = track.loop;
+        
+        // Connect to gain node
+        track.source.connect(track.gainNode);
+        
+        // Calculate offset (for resume from pause)
+        const offset = track.pauseOffset;
+        track.source.start(0, offset);
+        track.startTime = state.audioContext.currentTime - offset;
+        track.isPlaying = true;
+        track.isPaused = false;
+        
+        // Handle ended
+        track.source.onended = () => {
+            if (!track.loop && track.isPlaying) {
+                track.isPlaying = false;
+                track.pauseOffset = 0;
+                track.source = null;
+                renderUI();
+            }
+        };
+        
+        showToast('▶️', `Playing: ${track.name}`);
+    } catch (error) {
+        console.error('Play error:', error);
+        showToast('❌', 'Failed to play track');
+    }
 }
 
 function pauseTrack(track) {
-    if (track.source) {
-        track.pauseTime = audioContext.currentTime - track.startTime;
+    if (!track.source || !track.isPlaying) return;
+    
+    try {
+        const elapsed = state.audioContext.currentTime - track.startTime;
+        track.pauseOffset = elapsed % track.buffer.duration;
+        
         track.source.stop();
+        track.source.disconnect();
         track.source = null;
+        
+        track.isPlaying = false;
+        track.isPaused = true;
+        
+        showToast('⏸️', `Paused: ${track.name}`);
+    } catch (error) {
+        console.error('Pause error:', error);
     }
-    track.isPlaying = false;
 }
 
-function playAll() {
-    tracks.forEach(track => {
+function playAllTracks() {
+    state.tracks.forEach(track => {
         if (!track.isPlaying) {
             playTrack(track);
         }
     });
-    renderTracks();
+    renderUI();
     showToast('▶️', 'Playing all tracks');
 }
 
-function stopAll() {
-    tracks.forEach(track => {
+function pauseAllTracks() {
+    state.tracks.forEach(track => {
         if (track.isPlaying) {
             pauseTrack(track);
         }
-        track.pauseTime = 0;
     });
-    renderTracks();
+    renderUI();
+    showToast('⏸️', 'Paused all tracks');
+}
+
+function stopAllTracks() {
+    state.tracks.forEach(track => {
+        if (track.source) {
+            track.source.stop();
+            track.source.disconnect();
+            track.source = null;
+        }
+        track.isPlaying = false;
+        track.isPaused = false;
+        track.pauseOffset = 0;
+        track.startTime = 0;
+    });
+    renderUI();
     showToast('⏹️', 'Stopped all tracks');
 }
 
-function toggleSoloMode() {
-    soloMode = !soloMode;
-    soloModeBtn.classList.toggle('active');
-    showToast('🎧', soloMode ? 'Solo mode ON' : 'Solo mode OFF');
-}
-
-// Track Modal
-function openTrackModal(trackId) {
-    const track = tracks.find(t => t.id === parseFloat(trackId));
-    if (!track) return;
-    
-    currentModal = track;
-    
-    document.getElementById('modalTrackName').textContent = track.name;
-    document.getElementById('modalDuration').textContent = formatTime(track.duration);
-    
-    const modalVolume = document.getElementById('modalVolume');
-    const modalPan = document.getElementById('modalPan');
-    const modalRate = document.getElementById('modalRate');
-    
-    modalVolume.value = track.volume;
-    modalPan.value = track.pan;
-    modalRate.value = track.rate * 100;
-    
-    document.getElementById('modalVolumeValue').textContent = track.volume + '%';
-    document.getElementById('modalPanValue').textContent = getPanLabel(track.pan);
-    document.getElementById('modalRateValue').textContent = (track.rate * 100) + '%';
-    
-    // Add listeners
-    modalVolume.oninput = (e) => {
-        document.getElementById('modalVolumeValue').textContent = e.target.value + '%';
-    };
-    modalPan.oninput = (e) => {
-        document.getElementById('modalPanValue').textContent = getPanLabel(e.target.value);
-    };
-    modalRate.oninput = (e) => {
-        document.getElementById('modalRateValue').textContent = e.target.value + '%';
-    };
-    
-    trackModal.classList.add('active');
-}
-
-window.openTrackModal = openTrackModal;
-
+// Modal Functions
 function closeTrackModal() {
-    trackModal.classList.remove('active');
-    currentModal = null;
-}
-
-function applyModalSettings() {
-    if (!currentModal) return;
-    
-    const modalVolume = document.getElementById('modalVolume');
-    const modalPan = document.getElementById('modalPan');
-    const modalRate = document.getElementById('modalRate');
-    
-    currentModal.volume = parseFloat(modalVolume.value);
-    currentModal.pan = parseFloat(modalPan.value);
-    currentModal.rate = parseFloat(modalRate.value) / 100;
-    
-    currentModal.gainNode.gain.value = currentModal.volume / 100;
-    currentModal.panNode.pan.value = currentModal.pan / 100;
-    
-    if (currentModal.source) {
-        currentModal.source.playbackRate.value = currentModal.rate;
-    }
-    
-    renderTracks();
-    closeTrackModal();
-    showToast('✅', 'Settings applied');
+    document.getElementById('trackModal').classList.remove('active');
+    state.currentModalTrack = null;
+    renderUI();
 }
 
 function removeCurrentTrack() {
-    if (!currentModal) return;
+    if (!state.currentModalTrack) return;
     
-    const trackIndex = tracks.findIndex(t => t.id === currentModal.id);
-    if (trackIndex === -1) return;
+    const track = state.currentModalTrack;
+    const index = state.tracks.findIndex(t => t.id === track.id);
     
-    // Stop if playing
-    if (currentModal.isPlaying) {
-        pauseTrack(currentModal);
+    if (index === -1) return;
+    
+    // Stop and disconnect
+    if (track.source) {
+        track.source.stop();
+        track.source.disconnect();
     }
+    track.gainNode.disconnect();
+    track.panNode.disconnect();
     
     // Remove from array
-    tracks.splice(trackIndex, 1);
-    
-    // Check if need to show upload screen
-    if (tracks.length === 0) {
-        labInterface.classList.remove('active');
-        uploadZoneSection.style.display = 'flex';
-        exportBtn.disabled = true;
-    } else {
-        renderTracks();
-        if (tracks.length < 2) {
-            exportBtn.disabled = true;
-        }
-    }
+    state.tracks.splice(index, 1);
     
     closeTrackModal();
-    showToast('🗑️', 'Track removed');
-}
-
-// Export Mix
-function exportMix() {
-    showToast('💾', 'Mix export feature coming soon!');
-    // In a real implementation, this would record the mixed audio
-}
-
-// Visualizer
-function setupVisualizer() {
-    const canvas = masterVisualizer;
-    const ctx = canvas.getContext('2d');
     
-    function resize() {
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
+    // Reset if no tracks left
+    if (state.tracks.length === 0) {
+        document.getElementById('labInterface').classList.remove('active');
+        document.getElementById('uploadZoneSection').style.display = 'flex';
+        updateStatus('Ready to Mix');
+    } else {
+        renderUI();
     }
     
+    showToast('🗑️', `Removed: ${track.name}`);
+}
+
+// Visualization
+function startVisualization() {
+    const canvas = document.getElementById('masterVisualizer');
+    const ctx = canvas.getContext('2d');
+    
+    const resize = () => {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+    };
     resize();
     window.addEventListener('resize', resize);
     
+    const bufferLength = state.analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
     function draw() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        state.animationId = requestAnimationFrame(draw);
+        
+        state.analyser.getByteFrequencyData(dataArray);
+        
+        ctx.fillStyle = 'rgba(15, 20, 25, 0.2)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw some animated bars
-        const barCount = 32;
-        const barWidth = canvas.width / barCount;
+        const barWidth = canvas.width / bufferLength;
         
-        for (let i = 0; i < barCount; i++) {
-            const height = Math.random() * canvas.height * 0.8;
-            const hue = (i / barCount) * 360;
+        for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * canvas.height;
+            const hue = (i / bufferLength) * 360;
             
-            ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.6)`;
+            ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.8)`;
             ctx.fillRect(
                 i * barWidth,
-                canvas.height - height,
-                barWidth - 2,
-                height
+                canvas.height - barHeight,
+                barWidth - 1,
+                barHeight
             );
         }
-        
-        requestAnimationFrame(draw);
     }
     
     draw();
 }
 
-// Toast Notification
+// Helper Functions
+function findTrack(trackId) {
+    return state.tracks.find(t => t.id === parseFloat(trackId));
+}
+
+function formatTime(seconds) {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatPan(value) {
+    const val = parseInt(value);
+    if (val === 0) return 'Center';
+    if (val < 0) return `L${Math.abs(val)}`;
+    return `R${val}`;
+}
+
+function updateStatus(text) {
+    document.getElementById('statusText').textContent = text;
+}
+
+// UI Functions
+function showLoadingModal(text) {
+    document.getElementById('loadingText').textContent = text;
+    document.getElementById('loadingModal').classList.add('active');
+}
+
+function hideLoadingModal() {
+    document.getElementById('loadingModal').classList.remove('active');
+}
+
 function showToast(icon, message) {
-    const toastIcon = document.getElementById('toastIcon');
-    const toastMessage = document.getElementById('toastMessage');
-    
-    toastIcon.textContent = icon;
-    toastMessage.textContent = message;
+    const toast = document.getElementById('toast');
+    document.getElementById('toastIcon').textContent = icon;
+    document.getElementById('toastMessage').textContent = message;
     
     toast.classList.add('active');
     
@@ -544,27 +664,48 @@ function showToast(icon, message) {
     }, 3000);
 }
 
-// Utility
-function formatTime(seconds) {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+function createParticles() {
+    const container = document.getElementById('particles');
+    const count = 20;
+    
+    for (let i = 0; i < count; i++) {
+        const particle = document.createElement('div');
+        particle.style.cssText = `
+            position: absolute;
+            width: ${Math.random() * 4 + 2}px;
+            height: ${Math.random() * 4 + 2}px;
+            background: rgba(108, 92, 231, 0.3);
+            border-radius: 50%;
+            left: ${Math.random() * 100}%;
+            top: ${Math.random() * 100}%;
+            animation: particleFloat ${Math.random() * 10 + 10}s ease-in-out infinite;
+            animation-delay: ${Math.random() * 5}s;
+        `;
+        container.appendChild(particle);
+    }
+    
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes particleFloat {
+            0%, 100% { transform: translate(0, 0); opacity: 0.3; }
+            50% { transform: translate(${Math.random() * 100 - 50}px, ${Math.random() * 100 - 50}px); opacity: 0.6; }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
-// Keyboard Shortcuts
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+    if (e.code === 'Space' && e.target.tagName !== 'INPUT' && state.tracks.length > 0) {
         e.preventDefault();
-        if (tracks.length > 0) {
-            const anyPlaying = tracks.some(t => t.isPlaying);
-            if (anyPlaying) {
-                stopAll();
-            } else {
-                playAll();
-            }
+        const anyPlaying = state.tracks.some(t => t.isPlaying);
+        if (anyPlaying) {
+            pauseAllTracks();
+        } else {
+            playAllTracks();
         }
     }
 });
 
-console.log('🧪 MixLab initialized - Ready to mix!');
+console.log('🧪 MixLab loaded - Ready to create!');
