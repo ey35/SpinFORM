@@ -113,6 +113,10 @@ function initializeUser() {
     }
 }
 
+function getUserId() {
+    return (AppState.currentUser && AppState.currentUser.id) ? AppState.currentUser.id : 'local-user';
+}
+
 function setupEventListeners() {
     // Navigation
     document.querySelectorAll('.nav-item').forEach(btn => {
@@ -420,7 +424,7 @@ async function processAudioFile(file, uploadItem, isAlbum = false) {
                     const songId = generateId();
                     
                     // Upload audio file to Supabase Storage
-                    const audioFileName = `${AppState.currentUser.id}/${songId}.mp3`;
+                    const audioFileName = `${getUserId()}/${songId}.mp3`;
                     const { data: audioData, error: audioError } = await supabaseClient.storage
                         .from('music-files')
                         .upload(audioFileName, file);
@@ -440,7 +444,7 @@ async function processAudioFile(file, uploadItem, isAlbum = false) {
                         const { data, format } = metadata.picture;
                         const blob = new Blob([new Uint8Array(data)], { type: format });
                         
-                        const artworkFileName = `${AppState.currentUser.id}/${songId}-artwork.jpg`;
+                        const artworkFileName = `${getUserId()}/${songId}-artwork.jpg`;
                         const { error: artworkError } = await supabaseClient.storage
                             .from('music-files')
                             .upload(artworkFileName, blob);
@@ -458,7 +462,7 @@ async function processAudioFile(file, uploadItem, isAlbum = false) {
                     
                     const song = {
                         id: songId,
-                        user_id: AppState.currentUser.id,
+                        user_id: getUserId(),
                         title: metadata.title || file.name.replace(/\.[^/.]+$/, ''),
                         artist: metadata.artist || 'Unknown Artist',
                         album: metadata.album || 'Unknown Album',
@@ -524,7 +528,7 @@ async function processAudioFile(file, uploadItem, isAlbum = false) {
                     progressFill.style.width = '50%';
                     
                     // Upload audio file
-                    const audioFileName = `${AppState.currentUser.id}/${songId}.mp3`;
+                    const audioFileName = `${getUserId()}/${songId}.mp3`;
                     const { data: audioData, error: audioError } = await supabaseClient.storage
                         .from('music-files')
                         .upload(audioFileName, file);
@@ -539,7 +543,7 @@ async function processAudioFile(file, uploadItem, isAlbum = false) {
                     
                     const song = {
                         id: songId,
-                        user_id: AppState.currentUser.id,
+                        user_id: getUserId(),
                         title: file.name.replace(/\.[^/.]+$/, ''),
                         artist: 'Unknown Artist',
                         album: 'Unknown Album',
@@ -1112,7 +1116,7 @@ window.changeAlbumArtwork = async function(albumId) {
         
         try {
             // Upload to Supabase Storage
-            const artworkFileName = `${AppState.currentUser.id}/album-${albumId}-artwork.jpg`;
+            const artworkFileName = `${getUserId()}/album-${albumId}-artwork.jpg`;
             const { error: uploadError } = await supabaseClient.storage
                 .from('music-files')
                 .upload(artworkFileName, file, { upsert: true });
@@ -1257,7 +1261,7 @@ async function recordListeningHistory(songId) {
     await supabaseClient
         .from('listening_history')
         .insert([{
-            user_id: AppState.currentUser.id,
+            user_id: getUserId(),
             song_id: songId
         }]);
 }
@@ -1685,7 +1689,7 @@ async function changeSongArtwork(songId) {
         if (!file) return;
         
         try {
-            const artworkFileName = `${AppState.currentUser.id}/${songId}-artwork.jpg`;
+            const artworkFileName = `${getUserId()}/${songId}-artwork.jpg`;
             const { error: uploadError } = await supabaseClient.storage
                 .from('music-files')
                 .upload(artworkFileName, file, { upsert: true });
@@ -1779,14 +1783,14 @@ async function deleteSong(songId) {
         if (dbError) throw dbError;
         
         // Delete audio file from storage
-        const audioFileName = `${AppState.currentUser.id}/${songId}.mp3`;
+    const audioFileName = `${getUserId()}/${songId}.mp3`;
         await supabaseClient.storage
             .from('music-files')
             .remove([audioFileName]);
         
         // Delete artwork if exists
         if (song.artwork_url) {
-            const artworkFileName = `${AppState.currentUser.id}/${songId}-artwork.jpg`;
+            const artworkFileName = `${getUserId()}/${songId}-artwork.jpg`;
             await supabaseClient.storage
                 .from('music-files')
                 .remove([artworkFileName]);
@@ -1816,7 +1820,7 @@ async function loadFromSupabase() {
         const { data, error } = await supabaseClient
             .from('songs')
             .select('*')
-            .eq('user_id', AppState.currentUser.id)
+            .eq('user_id', getUserId())
             .order('date_added', { ascending: false });
         
         if (error) throw error;
