@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MusicVault - Your Personal Music Library</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -23,6 +23,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Dynamic Background -->
+    <div id="dynamic-bg" class="dynamic-background"></div>
 
     <!-- Sidebar -->
     <aside class="sidebar">
@@ -48,6 +51,12 @@
                     <path d="M4 3h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm6 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0-2a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
                 </svg>
                 Albums
+            </button>
+            <button class="nav-item" data-view="favorites">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 3.5l2.5 5.5h6l-4.5 4 2 6-6-4-6 4 2-6-4.5-4h6l2.5-5.5z"/>
+                </svg>
+                Favorites
             </button>
             <button class="nav-item" data-view="upload">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
@@ -131,6 +140,26 @@
             </div>
         </section>
 
+        <!-- Favorites View -->
+        <section id="favorites-view" class="view">
+            <div class="view-title">
+                <h2>Favorites</h2>
+                <span class="track-count" id="favorites-count">0 tracks</span>
+            </div>
+            
+            <div id="favorites-list" class="songs-list">
+                <!-- Favorite songs will be rendered here -->
+            </div>
+            
+            <div id="favorites-empty" class="empty-state">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                    <path d="M32 12l8 16h18l-14 12 6 18-18-12-18 12 6-18-14-12h18l8-16z" stroke="currentColor" stroke-width="2" fill="none"/>
+                </svg>
+                <h3>No favorites yet</h3>
+                <p>Mark songs as favorites to see them here</p>
+            </div>
+        </section>
+
         <!-- Upload View -->
         <section id="upload-view" class="view">
             <div class="view-title">
@@ -172,6 +201,11 @@
                 <div class="player-title" id="player-title">Track Title</div>
                 <div class="player-artist" id="player-artist">Artist Name</div>
             </div>
+            <button class="control-btn favorite-player-btn" id="favorite-player-btn" title="Add to Favorites">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10 3.5l2.5 5.5h6l-4.5 4 2 6-6-4-6 4 2-6-4.5-4h6l2.5-5.5z"/>
+                </svg>
+            </button>
         </div>
         
         <div class="player-controls-section">
@@ -204,6 +238,11 @@
                         <path d="M4 7h12v2H4V7zm0 4h12v2H4v-2zM18 3l-4 4 4 4M2 17l4-4-4-4"/>
                     </svg>
                 </button>
+                <button class="control-btn" id="lyrics-btn" title="Show Lyrics">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M3 4h14v2H3V4zm0 4h14v2H3V8zm0 4h10v2H3v-2z"/>
+                    </svg>
+                </button>
             </div>
             
             <div class="player-progress-container">
@@ -232,10 +271,137 @@
         <audio id="audio-player"></audio>
     </div>
 
+    <!-- Upload Type Modal -->
+    <div id="upload-type-modal" class="modal">
+        <div class="modal-content">
+            <h2>What are you uploading?</h2>
+            <p>This helps us organize your music better</p>
+            <div class="upload-type-buttons">
+                <button class="upload-type-btn" data-type="songs">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="currentColor">
+                        <path d="M38 6v4H14V6h24zM14 14h24v4H14v-4zm0 8h24v4H14v-4zm0 8h24v4H14v-4zM6 6h4v4H6V6zm0 8h4v4H6v-4zm0 8h4v4H6v-4zm0 8h4v4H6v-4z"/>
+                    </svg>
+                    <h3>Individual Songs</h3>
+                    <p>Separate tracks from different sources</p>
+                </button>
+                <button class="upload-type-btn" data-type="album">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="currentColor">
+                        <path d="M10 6h28a2 2 0 0 1 2 2v32a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm14 28a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm0-4a6 6 0 1 1 0-12 6 6 0 0 1 0 12z"/>
+                    </svg>
+                    <h3>Album</h3>
+                    <p>Collection of tracks from the same album</p>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lyrics Modal -->
+    <div id="lyrics-modal" class="modal">
+        <div class="modal-content lyrics-modal-content">
+            <div class="modal-header">
+                <h2>Lyrics</h2>
+                <button class="close-modal" onclick="closeLyricsModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="lyrics-content">
+                <div id="lyrics-display" class="lyrics-display">
+                    <p class="no-lyrics">No lyrics available</p>
+                </div>
+                <div class="lyrics-controls">
+                    <button class="btn-secondary" onclick="editLyrics()">Edit Lyrics</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Lyrics Modal -->
+    <div id="edit-lyrics-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Lyrics</h2>
+                <button class="close-modal" onclick="closeEditLyricsModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="lyrics-editor">
+                <textarea id="lyrics-textarea" class="lyrics-textarea" placeholder="Enter lyrics here...
+
+For synced lyrics, use this format:
+[00:12.50] First line of lyrics
+[00:15.30] Second line of lyrics"></textarea>
+                <div class="lyrics-editor-controls">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="synced-lyrics-toggle">
+                        <span>Enable synced lyrics (LRC format)</span>
+                    </label>
+                    <div class="button-group">
+                        <button class="btn-secondary" onclick="closeEditLyricsModal()">Cancel</button>
+                        <button class="btn-primary" onclick="saveLyrics()">Save Lyrics</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="context-menu">
+        <div class="context-menu-item" data-action="play">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M4 2v12l10-6z"/>
+            </svg>
+            Play
+        </div>
+        <div class="context-menu-item" data-action="favorite">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8 2l2 4h5l-3.5 3 1.5 5-5-3-5 3 1.5-5L1 6h5l2-4z"/>
+            </svg>
+            Add to Favorites
+        </div>
+        <div class="context-menu-item" data-action="download">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 2v8m-3-3l3 3 3-3M2 12v2h12v-2"/>
+            </svg>
+            Download
+        </div>
+        <div class="context-menu-item" data-action="share">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M12 5a2 2 0 100-4 2 2 0 000 4zM4 10a2 2 0 100-4 2 2 0 000 4zm8 5a2 2 0 100-4 2 2 0 000 4zM5.5 9l5-2M5.5 9l5 2"/>
+            </svg>
+            Share
+        </div>
+        <div class="context-menu-item" data-action="lyrics">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h8v2H2v-2z"/>
+            </svg>
+            Edit Lyrics
+        </div>
+        <div class="context-menu-item" data-action="artwork">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M2 2h12v12H2V2zm2 2v6l2-2 2 2 2-2v-4H4zm6 0h2v2h-2V4z"/>
+            </svg>
+            Change Cover Art
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" data-action="delete">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M5 1h6v2H5V1zM2 4h12v2H2V4zm1 3h10v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7z"/>
+            </svg>
+            Delete
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
 
+    <!-- Color Thief for extracting colors from artwork -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
