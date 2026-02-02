@@ -188,14 +188,24 @@ async function handleLogin(e) {
         return;
     }
 
+    const loginBtn = document.querySelector('#login-form button[type="submit"]');
+    if (loginBtn) loginBtn.disabled = true;
+
     const { data, error } = await supabaseClient.auth.signInWithPassword({
         email,
         password
     });
+
+    if (loginBtn) loginBtn.disabled = false;
     
     if (error) {
         console.error('Login error:', error);
-        showToast(error.message, 'error');
+        // Helpful message for unconfirmed email
+        if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
+            showToast('Email not confirmed. Check your inbox (or spam) for a confirmation link.', 'error');
+        } else {
+            showToast(error.message || 'Login failed', 'error');
+        }
     } else {
         console.log('Login successful:', data);
         AppState.currentUser = data.user;
@@ -215,12 +225,21 @@ async function handleSignup(e) {
     
     console.log('Attempting signup...');
 
+    const signupBtn = document.querySelector('#signup-form button[type="submit"]');
+    const originalText = signupBtn ? signupBtn.textContent : 'Create Account';
+
     try {
         await initSupabase();
     } catch (err) {
         console.error('Supabase not ready for signup:', err);
         showToast('Auth service not available. Try again later.', 'error');
         return;
+    }
+
+    // Disable button to avoid repeated requests
+    if (signupBtn) {
+        signupBtn.disabled = true;
+        signupBtn.textContent = 'Creating...';
     }
 
     // Sign up with Supabase Auth
@@ -234,23 +253,45 @@ async function handleSignup(e) {
             }
         }
     });
-    
+
     if (error) {
         console.error('Signup error:', error);
-        showToast(error.message, 'error');
+        // Handle Supabase rate limiting / security timer (429)
+        const msg = error.message || '';
+        if (msg.toLowerCase().includes('for security purposes') || (error.status === 429)) {
+            showToast('Too many signup attempts. Please wait 60 seconds and try again.', 'error');
+            // start 60s cooldown on button
+            startButtonCooldown(signupBtn, 60, originalText);
+            return;
+        }
+
+        if (signupBtn) {
+            signupBtn.disabled = false;
+            signupBtn.textContent = originalText;
+        }
+
+        showToast(msg || 'Signup failed', 'error');
         return;
     }
-    
+
     console.log('Signup successful:', data);
-    
+
     // Check if email confirmation is required
     if (data.user && !data.session) {
+        if (signupBtn) {
+            signupBtn.disabled = false;
+            signupBtn.textContent = originalText;
+        }
         showToast('Please check your email to confirm your account!', 'success');
         return;
     }
-    
+
     if (data.user) {
         AppState.currentUser = data.user;
+        if (signupBtn) {
+            signupBtn.disabled = false;
+            signupBtn.textContent = originalText;
+        }
         hideAuthScreen();
         showApp();
         showToast('Account created! Welcome to MusicVault!', 'success');
@@ -2006,6 +2047,24 @@ function updateStorageInfo() {
     
     if (storageFill) storageFill.style.width = percent + '%';
     if (storageText) storageText.textContent = `${count} track${count === 1 ? '' : 's'}`;
+}
+
+// Disable a button and show a countdown, then restore original text
+function startButtonCooldown(button, seconds, originalText) {
+    if (!button) return;
+    let remaining = seconds;
+    button.disabled = true;
+    const update = () => {
+        button.textContent = `${originalText} (${remaining}s)`;
+        remaining -= 1;
+        if (remaining < 0) {
+            button.disabled = false;
+            button.textContent = originalText;
+            clearInterval(timer);
+        }
+    };
+    update();
+    const timer = setInterval(update, 1000);
 }
 
 // ===================================
