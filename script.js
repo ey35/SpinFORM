@@ -1,4 +1,18 @@
 // ===================================
+// SUPABASE CONFIGURATION
+// ===================================
+const SUPABASE_URL = 'https://xarkfpnknrrlbragmrcl.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhh';
+
+let supabase = null;
+
+// Initialize Supabase
+async function initSupabase() {
+    const { createClient } = supabase;
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ===================================
 // STATE MANAGEMENT
 // ===================================
 const AppState = {
@@ -14,7 +28,8 @@ const AppState = {
     uploadType: 'songs',
     pendingFiles: [],
     contextMenuTarget: null,
-    colorThief: null
+    colorThief: null,
+    currentUser: null
 };
 
 // ===================================
@@ -33,14 +48,171 @@ window.addEventListener('load', () => {
 // ===================================
 // INITIALIZATION
 // ===================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     AppState.colorThief = new ColorThief();
-    loadFromStorage();
+    
+    // Initialize Supabase first
+    await initSupabase();
+    
+    // Check authentication
+    await checkAuth();
+    
     setupEventListeners();
     renderCurrentView();
     updateStorageInfo();
     setupDragAndDrop();
 });
+
+// ===================================
+// AUTHENTICATION
+// ===================================
+async function checkAuth() {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+        AppState.currentUser = session.user;
+        await loadFromSupabase();
+        showApp();
+    } else {
+        showAuthScreen();
+    }
+}
+
+function showAuthScreen() {
+    const authHTML = `
+        <div class="auth-screen" id="auth-screen">
+            <div class="auth-container">
+                <div class="auth-logo">
+                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                        <circle cx="40" cy="40" r="35" stroke="#1DB954" stroke-width="3"/>
+                        <path d="M30 35 L30 45 M35 32 L35 48 M40 28 L40 52 M45 32 L45 48 M50 35 L50 45" stroke="#1DB954" stroke-width="3" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h1>Welcome to MusicVault</h1>
+                <p>Your personal music library in the cloud</p>
+                
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+                    <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
+                </div>
+                
+                <form id="login-form" class="auth-form">
+                    <input type="email" id="login-email" placeholder="Email" required>
+                    <input type="password" id="login-password" placeholder="Password" required>
+                    <button type="submit" class="btn-primary">Login</button>
+                </form>
+                
+                <form id="signup-form" class="auth-form" style="display: none;">
+                    <input type="text" id="signup-username" placeholder="Username" required>
+                    <input type="email" id="signup-email" placeholder="Email" required>
+                    <input type="password" id="signup-password" placeholder="Password (min 6 characters)" required>
+                    <button type="submit" class="btn-primary">Create Account</button>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', authHTML);
+    
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('signup-form').addEventListener('submit', handleSignup);
+}
+
+window.switchAuthTab = function(tab) {
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const tabs = document.querySelectorAll('.auth-tab');
+    
+    tabs.forEach(t => t.classList.remove('active'));
+    
+    if (tab === 'login') {
+        loginForm.style.display = 'block';
+        signupForm.style.display = 'none';
+        tabs[0].classList.add('active');
+    } else {
+        loginForm.style.display = 'none';
+        signupForm.style.display = 'block';
+        tabs[1].classList.add('active');
+    }
+};
+
+async function handleLogin(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+    });
+    
+    if (error) {
+        showToast(error.message, 'error');
+    } else {
+        AppState.currentUser = data.user;
+        await loadFromSupabase();
+        hideAuthScreen();
+        showApp();
+        showToast('Welcome back!', 'success');
+    }
+}
+
+async function handleSignup(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('signup-username').value;
+    const email = document.getElementById('signup-email').value;
+    const password = document.getElementById('signup-password').value;
+    
+    // Sign up with Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+    });
+    
+    if (error) {
+        showToast(error.message, 'error');
+        return;
+    }
+    
+    // Create user record
+    const { error: userError } = await supabase
+        .from('users')
+        .insert([{
+            id: data.user.id,
+            email,
+            username,
+            display_name: username
+        }]);
+    
+    if (userError) {
+        showToast(userError.message, 'error');
+    } else {
+        AppState.currentUser = data.user;
+        hideAuthScreen();
+        showApp();
+        showToast('Account created! Welcome to MusicVault!', 'success');
+    }
+}
+
+function hideAuthScreen() {
+    const authScreen = document.getElementById('auth-screen');
+    if (authScreen) authScreen.remove();
+}
+
+function showApp() {
+    document.querySelector('.sidebar').style.display = 'flex';
+    document.querySelector('.main-content').style.display = 'block';
+}
+
+async function logout() {
+    await supabase.auth.signOut();
+    AppState.currentUser = null;
+    AppState.songs = [];
+    AppState.albums = {};
+    location.reload();
+}
 
 function setupEventListeners() {
     // Navigation
@@ -199,7 +371,6 @@ function setupDragAndDrop() {
             ghostClass: 'dragging',
             dragClass: 'dragging',
             onEnd: function(evt) {
-                // Reorder albums in state based on new DOM order
                 const newOrder = [];
                 const gridItems = albumsGrid.querySelectorAll('.album-card');
                 gridItems.forEach(item => {
@@ -209,13 +380,11 @@ function setupDragAndDrop() {
                     }
                 });
                 
-                // Rebuild albums object in new order
                 const newAlbums = {};
                 newOrder.forEach(album => {
                     newAlbums[album.id] = album;
                 });
                 AppState.albums = newAlbums;
-                saveToStorage();
                 showToast('Album order updated', 'success');
             }
         });
@@ -259,14 +428,13 @@ function renderCurrentView() {
 }
 
 // ===================================
-// FILE UPLOAD & METADATA EXTRACTION
+// FILE UPLOAD & SUPABASE STORAGE
 // ===================================
 async function handleFiles(files) {
     if (files.length === 0) return;
     
     AppState.pendingFiles = Array.from(files);
     
-    // Show upload type modal
     const modal = document.getElementById('upload-type-modal');
     if (modal) {
         modal.classList.add('active');
@@ -285,7 +453,6 @@ async function processUploadQueue() {
     if (!uploadQueue) return;
     
     const isAlbum = AppState.uploadType === 'album';
-    let albumMetadata = null;
     
     for (const file of AppState.pendingFiles) {
         if (!file.type.startsWith('audio/')) {
@@ -297,7 +464,7 @@ async function processUploadQueue() {
         uploadQueue.appendChild(uploadItem);
         
         try {
-            await processAudioFile(file, uploadItem, isAlbum, albumMetadata);
+            await processAudioFile(file, uploadItem, isAlbum);
         } catch (error) {
             console.error('Error processing file:', error);
             showToast(`Error processing ${file.name}`, 'error');
@@ -323,135 +490,107 @@ function createUploadItem(file) {
     return item;
 }
 
-async function processAudioFile(file, uploadItem, isAlbum = false, sharedAlbumMetadata = null) {
+async function processAudioFile(file, uploadItem, isAlbum = false) {
     return new Promise((resolve, reject) => {
         const progressFill = uploadItem.querySelector('.upload-progress-fill');
         const statusText = uploadItem.querySelector('p');
         
-        // Simulate progress
         let progress = 0;
         const progressInterval = setInterval(() => {
-            progress += Math.random() * 20;
-            if (progress > 90) progress = 90;
+            progress += Math.random() * 15;
+            if (progress > 70) progress = 70;
             progressFill.style.width = progress + '%';
         }, 200);
         
-        // Extract metadata using jsmediatags
         window.jsmediatags.read(file, {
             onSuccess: async (tag) => {
-                clearInterval(progressInterval);
-                progressFill.style.width = '100%';
-                
-                const metadata = tag.tags;
-                const audioURL = URL.createObjectURL(file);
-                
-                // Get duration
-                const audio = new Audio(audioURL);
-                await new Promise(res => {
-                    audio.addEventListener('loadedmetadata', res);
-                });
-                
-                // Extract album art
-                let artworkURL = null;
-                if (metadata.picture) {
-                    const { data, format } = metadata.picture;
-                    const blob = new Blob([new Uint8Array(data)], { type: format });
-                    artworkURL = URL.createObjectURL(blob);
-                }
-                
-                const song = {
-                    id: generateId(),
-                    title: metadata.title || file.name.replace(/\.[^/.]+$/, ''),
-                    artist: metadata.artist || 'Unknown Artist',
-                    album: metadata.album || 'Unknown Album',
-                    year: metadata.year || '',
-                    track: metadata.track || '',
-                    duration: audio.duration,
-                    file: file,
-                    url: audioURL,
-                    artwork: artworkURL,
-                    dateAdded: new Date().toISOString(),
-                    isFavorite: false,
-                    lyrics: null,
-                    syncedLyrics: false
-                };
-                
-                // Check for duplicates
-                const isDuplicate = AppState.songs.some(existingSong => 
-                    existingSong.title === song.title && 
-                    existingSong.artist === song.artist &&
-                    existingSong.album === song.album
-                );
-                
-                if (isDuplicate) {
-                    statusText.textContent = 'Duplicate - Skipped';
-                    setTimeout(() => uploadItem.remove(), 1000);
-                    showToast(`Skipped duplicate: ${song.title}`, 'error');
-                    resolve();
-                    return;
-                }
-                
-                AppState.songs.push(song);
-                organizeAlbums();
-                saveToStorage();
-                
-                statusText.textContent = 'Complete!';
-                setTimeout(() => {
-                    uploadItem.remove();
-                    renderCurrentView();
-                    updateStorageInfo();
-                    showToast(`Added: ${song.title}`, 'success');
-                }, 500);
-                
-                resolve();
-            },
-            onError: (error) => {
-                // If metadata extraction fails, create basic entry
-                clearInterval(progressInterval);
-                console.log('Metadata extraction failed, using basic info:', error);
-                
-                const audioURL = URL.createObjectURL(file);
-                const audio = new Audio(audioURL);
-                
-                audio.addEventListener('loadedmetadata', () => {
-                    const song = {
-                        id: generateId(),
-                        title: file.name.replace(/\.[^/.]+$/, ''),
-                        artist: 'Unknown Artist',
-                        album: 'Unknown Album',
-                        year: '',
-                        track: '',
-                        duration: audio.duration,
-                        file: file,
-                        url: audioURL,
-                        artwork: null,
-                        dateAdded: new Date().toISOString(),
-                        isFavorite: false,
-                        lyrics: null,
-                        syncedLyrics: false
-                    };
+                try {
+                    clearInterval(progressInterval);
+                    progressFill.style.width = '75%';
+                    statusText.textContent = 'Uploading to cloud...';
                     
-                    // Check for duplicates
-                    const isDuplicate = AppState.songs.some(existingSong => 
-                        existingSong.title === song.title && 
-                        existingSong.artist === song.artist
-                    );
+                    const metadata = tag.tags;
+                    const tempAudioURL = URL.createObjectURL(file);
                     
-                    if (isDuplicate) {
-                        progressFill.style.width = '100%';
-                        statusText.textContent = 'Duplicate - Skipped';
-                        setTimeout(() => uploadItem.remove(), 1000);
-                        showToast(`Skipped duplicate: ${song.title}`, 'error');
-                        resolve();
-                        return;
+                    // Get duration
+                    const audio = new Audio(tempAudioURL);
+                    await new Promise(res => {
+                        audio.addEventListener('loadedmetadata', res);
+                    });
+                    
+                    const songId = generateId();
+                    
+                    // Upload audio file to Supabase Storage
+                    const audioFileName = `${AppState.currentUser.id}/${songId}.mp3`;
+                    const { data: audioData, error: audioError } = await supabase.storage
+                        .from('music-files')
+                        .upload(audioFileName, file);
+                    
+                    if (audioError) throw audioError;
+                    
+                    progressFill.style.width = '85%';
+                    
+                    // Get public URL for audio
+                    const { data: { publicUrl: audioURL } } = supabase.storage
+                        .from('music-files')
+                        .getPublicUrl(audioFileName);
+                    
+                    // Upload artwork if exists
+                    let artworkURL = null;
+                    if (metadata.picture) {
+                        const { data, format } = metadata.picture;
+                        const blob = new Blob([new Uint8Array(data)], { type: format });
+                        
+                        const artworkFileName = `${AppState.currentUser.id}/${songId}-artwork.jpg`;
+                        const { error: artworkError } = await supabase.storage
+                            .from('music-files')
+                            .upload(artworkFileName, blob);
+                        
+                        if (!artworkError) {
+                            const { data: { publicUrl } } = supabase.storage
+                                .from('music-files')
+                                .getPublicUrl(artworkFileName);
+                            artworkURL = publicUrl;
+                        }
                     }
                     
-                    AppState.songs.push(song);
+                    progressFill.style.width = '95%';
+                    statusText.textContent = 'Saving metadata...';
+                    
+                    const song = {
+                        id: songId,
+                        user_id: AppState.currentUser.id,
+                        title: metadata.title || file.name.replace(/\.[^/.]+$/, ''),
+                        artist: metadata.artist || 'Unknown Artist',
+                        album: metadata.album || 'Unknown Album',
+                        year: metadata.year || '',
+                        track: metadata.track || '',
+                        duration: audio.duration,
+                        audio_url: audioURL,
+                        artwork_url: artworkURL,
+                        is_favorite: false,
+                        lyrics: null,
+                        synced_lyrics: false
+                    };
+                    
+                    // Save to Supabase database
+                    const { error: dbError } = await supabase
+                        .from('songs')
+                        .insert([song]);
+                    
+                    if (dbError) throw dbError;
+                    
+                    // Add to local state
+                    AppState.songs.push({
+                        ...song,
+                        dateAdded: new Date().toISOString()
+                    });
+                    
                     organizeAlbums();
-                    saveToStorage();
                     
                     progressFill.style.width = '100%';
                     statusText.textContent = 'Complete!';
+                    
                     setTimeout(() => {
                         uploadItem.remove();
                         renderCurrentView();
@@ -460,7 +599,91 @@ async function processAudioFile(file, uploadItem, isAlbum = false, sharedAlbumMe
                     }, 500);
                     
                     resolve();
-                });
+                } catch (error) {
+                    clearInterval(progressInterval);
+                    console.error('Upload error:', error);
+                    showToast('Upload failed: ' + error.message, 'error');
+                    uploadItem.remove();
+                    reject(error);
+                }
+            },
+            onError: async (error) => {
+                clearInterval(progressInterval);
+                console.log('Metadata extraction failed, using basic info:', error);
+                
+                try {
+                    const tempAudioURL = URL.createObjectURL(file);
+                    const audio = new Audio(tempAudioURL);
+                    
+                    await new Promise(res => {
+                        audio.addEventListener('loadedmetadata', res);
+                    });
+                    
+                    const songId = generateId();
+                    
+                    statusText.textContent = 'Uploading to cloud...';
+                    progressFill.style.width = '50%';
+                    
+                    // Upload audio file
+                    const audioFileName = `${AppState.currentUser.id}/${songId}.mp3`;
+                    const { data: audioData, error: audioError } = await supabase.storage
+                        .from('music-files')
+                        .upload(audioFileName, file);
+                    
+                    if (audioError) throw audioError;
+                    
+                    const { data: { publicUrl: audioURL } } = supabase.storage
+                        .from('music-files')
+                        .getPublicUrl(audioFileName);
+                    
+                    progressFill.style.width = '90%';
+                    
+                    const song = {
+                        id: songId,
+                        user_id: AppState.currentUser.id,
+                        title: file.name.replace(/\.[^/.]+$/, ''),
+                        artist: 'Unknown Artist',
+                        album: 'Unknown Album',
+                        year: '',
+                        track: '',
+                        duration: audio.duration,
+                        audio_url: audioURL,
+                        artwork_url: null,
+                        is_favorite: false,
+                        lyrics: null,
+                        synced_lyrics: false
+                    };
+                    
+                    const { error: dbError } = await supabase
+                        .from('songs')
+                        .insert([song]);
+                    
+                    if (dbError) throw dbError;
+                    
+                    AppState.songs.push({
+                        ...song,
+                        dateAdded: new Date().toISOString()
+                    });
+                    
+                    organizeAlbums();
+                    
+                    progressFill.style.width = '100%';
+                    statusText.textContent = 'Complete!';
+                    
+                    setTimeout(() => {
+                        uploadItem.remove();
+                        renderCurrentView();
+                        updateStorageInfo();
+                        showToast(`Added: ${song.title}`, 'success');
+                    }, 500);
+                    
+                    resolve();
+                } catch (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    showToast('Upload failed', 'error');
+                    uploadItem.remove();
+                    reject(uploadError);
+                }
             }
         });
     });
@@ -478,20 +701,18 @@ function organizeAlbums() {
                 title: song.album,
                 artist: song.artist,
                 year: song.year,
-                artwork: song.artwork,
+                artwork: song.artwork_url,
                 tracks: []
             };
         }
         
         AppState.albums[albumKey].tracks.push(song);
         
-        // Update artwork if this song has one and album doesn't
-        if (song.artwork && !AppState.albums[albumKey].artwork) {
-            AppState.albums[albumKey].artwork = song.artwork;
+        if (song.artwork_url && !AppState.albums[albumKey].artwork) {
+            AppState.albums[albumKey].artwork = song.artwork_url;
         }
     });
     
-    // Sort tracks within each album
     Object.values(AppState.albums).forEach(album => {
         album.tracks.sort((a, b) => {
             const trackA = parseInt(a.track) || 999;
@@ -538,7 +759,7 @@ function createSongElement(song, index) {
         <div class="song-number">${index + 1}</div>
         <div class="song-info">
             <div class="song-artwork-container" title="Click to change cover art">
-                <img class="song-artwork" src="${song.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%23282828\' width=\'100\' height=\'100\'/%3E%3C/svg%3E'}" alt="" crossorigin="anonymous">
+                <img class="song-artwork" src="${song.artwork_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%23282828\' width=\'100\' height=\'100\'/%3E%3C/svg%3E'}" alt="" crossorigin="anonymous">
                 <div class="song-artwork-overlay-small">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
                         <path d="M2 2h16v16H2V2zm3 3v9l3-3 3 3 3-3V5H5zm9 0h3v3h-3V5z"/>
@@ -547,15 +768,15 @@ function createSongElement(song, index) {
                 </div>
             </div>
             <div class="song-text">
-                <div class="song-title">${escapeHtml(song.title)}</div>
+                <div class="song-title" contenteditable="false" data-song-id="${song.id}" title="Double-click to edit">${escapeHtml(song.title)}</div>
                 <div class="song-artist">${escapeHtml(song.artist)}</div>
             </div>
         </div>
         <div class="song-album">${escapeHtml(song.album)}</div>
         <div class="song-duration">${formatTime(song.duration)}</div>
         <div class="song-actions">
-            <button class="action-icon-btn favorite-btn ${song.isFavorite ? 'favorite' : ''}" data-id="${song.id}" title="${song.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="${song.isFavorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+            <button class="action-icon-btn favorite-btn ${song.is_favorite ? 'favorite' : ''}" data-id="${song.id}" title="${song.is_favorite ? 'Remove from Favorites' : 'Add to Favorites'}">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="${song.is_favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
                     <path d="M9 3l2 4h5l-3.5 3 1.5 5-5-3-5 3 1.5-5L1 7h5l2-4z"/>
                 </svg>
             </button>
@@ -572,7 +793,36 @@ function createSongElement(song, index) {
         </div>
     `;
     
-    // Click on artwork to change it
+    // Double-click to edit song title
+    const songTitle = songItem.querySelector('.song-title');
+    songTitle.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        songTitle.contentEditable = 'true';
+        songTitle.focus();
+        document.execCommand('selectAll', false, null);
+    });
+    
+    songTitle.addEventListener('blur', async function() {
+        this.contentEditable = 'false';
+        const newTitle = this.textContent.trim();
+        if (newTitle && newTitle !== song.title) {
+            await updateSongTitle(song.id, newTitle);
+        } else {
+            this.textContent = song.title;
+        }
+    });
+    
+    songTitle.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            this.blur();
+        }
+        if (e.key === 'Escape') {
+            this.textContent = song.title;
+            this.blur();
+        }
+    });
+    
     const artworkContainer = songItem.querySelector('.song-artwork-container');
     artworkContainer.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -580,7 +830,7 @@ function createSongElement(song, index) {
     });
     
     songItem.addEventListener('click', (e) => {
-        if (!e.target.closest('.action-icon-btn') && !e.target.closest('.song-artwork-container')) {
+        if (!e.target.closest('.action-icon-btn') && !e.target.closest('.song-artwork-container') && !e.target.classList.contains('song-title')) {
             playSong(index);
         }
     });
@@ -610,6 +860,26 @@ function createSongElement(song, index) {
     }
     
     return songItem;
+}
+
+async function updateSongTitle(songId, newTitle) {
+    const song = AppState.songs.find(s => s.id === songId);
+    if (!song) return;
+    
+    const { error } = await supabase
+        .from('songs')
+        .update({ title: newTitle })
+        .eq('id', songId);
+    
+    if (error) {
+        showToast('Failed to update song title', 'error');
+        return;
+    }
+    
+    song.title = newTitle;
+    organizeAlbums();
+    renderCurrentView();
+    showToast('Song title updated!', 'success');
 }
 
 function renderAlbums() {
@@ -655,21 +925,18 @@ function renderAlbums() {
             </div>
         `;
         
-        // Click on artwork to change it
         const artworkContainer = albumCard.querySelector('.album-artwork-container');
         artworkContainer.addEventListener('click', (e) => {
             e.stopPropagation();
             changeAlbumArtwork(album.id);
         });
         
-        // Click on card to show album details (but not on artwork)
         albumCard.addEventListener('click', (e) => {
             if (!e.target.closest('.album-artwork-container') && !e.target.classList.contains('album-title')) {
                 showAlbumDetail(album);
             }
         });
         
-        // Double click to rename
         const albumTitle = albumCard.querySelector('.album-title');
         albumTitle.addEventListener('dblclick', (e) => {
             e.stopPropagation();
@@ -710,7 +977,7 @@ function renderFavorites() {
     
     if (!favoritesList) return;
     
-    const favorites = AppState.songs.filter(song => song.isFavorite);
+    const favorites = AppState.songs.filter(song => song.is_favorite);
     
     if (favorites.length === 0) {
         favoritesList.style.display = 'none';
@@ -785,27 +1052,106 @@ function showAlbumDetail(album) {
         album.tracks.forEach((song, index) => {
             const songItem = document.createElement('div');
             songItem.className = 'song-item';
+            songItem.dataset.songId = song.id;
             songItem.innerHTML = `
                 <div class="song-number">${song.track || index + 1}</div>
                 <div class="song-info">
                     <div class="song-text">
-                        <div class="song-title">${escapeHtml(song.title)}</div>
+                        <div class="song-title" contenteditable="false" data-song-id="${song.id}" title="Double-click to edit">${escapeHtml(song.title)}</div>
                         <div class="song-artist">${escapeHtml(song.artist)}</div>
                     </div>
                 </div>
                 <div class="song-album">${escapeHtml(song.album)}</div>
                 <div class="song-duration">${formatTime(song.duration)}</div>
+                <div class="song-actions">
+                    <button class="action-icon-btn delete-song-btn" data-id="${song.id}" title="Delete">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                            <path d="M6 2h6v2H6V2zM3 5h12v2H3V5zm1 3h10v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8z"/>
+                        </svg>
+                    </button>
+                </div>
             `;
             
-            songItem.addEventListener('click', () => {
-                const songIndex = AppState.songs.findIndex(s => s.id === song.id);
-                if (songIndex !== -1) playSong(songIndex);
+            // Double-click to edit song title in album view
+            const songTitle = songItem.querySelector('.song-title');
+            songTitle.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                songTitle.contentEditable = 'true';
+                songTitle.focus();
+                document.execCommand('selectAll', false, null);
             });
+            
+            songTitle.addEventListener('blur', async function() {
+                this.contentEditable = 'false';
+                const newTitle = this.textContent.trim();
+                if (newTitle && newTitle !== song.title) {
+                    await updateSongTitle(song.id, newTitle);
+                    showAlbumDetail(album); // Refresh album view
+                } else {
+                    this.textContent = song.title;
+                }
+            });
+            
+            songTitle.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                }
+                if (e.key === 'Escape') {
+                    this.textContent = song.title;
+                    this.blur();
+                }
+            });
+            
+            songItem.addEventListener('click', (e) => {
+                if (!e.target.closest('.action-icon-btn') && !e.target.classList.contains('song-title')) {
+                    const songIndex = AppState.songs.findIndex(s => s.id === song.id);
+                    if (songIndex !== -1) playSong(songIndex);
+                }
+            });
+            
+            // Delete button with options
+            const deleteBtn = songItem.querySelector('.delete-song-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showDeleteOptions(song.id, album.id);
+                });
+            }
             
             tracksList.appendChild(songItem);
         });
     }
 }
+
+function showDeleteOptions(songId, albumId) {
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px;">
+            <h2>Delete Song</h2>
+            <p style="margin-bottom: 1.5rem;">What would you like to do?</p>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <button class="btn-secondary" onclick="removeFromAlbum('${songId}', '${albumId}'); this.closest('.modal').remove();">
+                    Remove from this album only
+                </button>
+                <button class="btn-secondary" style="background: var(--accent-secondary); color: white; border-color: var(--accent-secondary);" onclick="deleteSong('${songId}'); this.closest('.modal').remove();">
+                    Delete song entirely
+                </button>
+                <button class="btn-secondary" onclick="this.closest('.modal').remove();">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+window.removeFromAlbum = async function(songId, albumId) {
+    // In this app, songs aren't actually in albums - they're organized by metadata
+    // So "removing from album" means changing the album metadata
+    showToast('Feature coming soon: Move song to different album', 'error');
+};
 
 window.playAlbum = function(albumId) {
     const album = AppState.albums[albumId];
@@ -847,18 +1193,13 @@ window.addTracksToAlbum = function(albumId) {
         if (files.length === 0) return;
         
         showToast(`Adding ${files.length} track(s) to ${album.title}...`, 'success');
-        
-        for (const file of files) {
-            // Process and add to album
-            // This would need special handling to ensure tracks go to the right album
-            await processAudioFile(file, createUploadItem(file), true);
-        }
+        handleFiles(files);
     });
     
     input.click();
 };
 
-window.changeAlbumArtwork = function(albumId) {
+window.changeAlbumArtwork = async function(albumId) {
     const album = AppState.albums[albumId];
     if (!album) return;
     
@@ -866,47 +1207,78 @@ window.changeAlbumArtwork = function(albumId) {
     input.type = 'file';
     input.accept = 'image/*';
     
-    input.addEventListener('change', (e) => {
+    input.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const artworkURL = event.target.result;
+        try {
+            // Upload to Supabase Storage
+            const artworkFileName = `${AppState.currentUser.id}/album-${albumId}-artwork.jpg`;
+            const { error: uploadError } = await supabase.storage
+                .from('music-files')
+                .upload(artworkFileName, file, { upsert: true });
             
-            // Update album artwork
-            album.artwork = artworkURL;
+            if (uploadError) throw uploadError;
+            
+            const { data: { publicUrl } } = supabase.storage
+                .from('music-files')
+                .getPublicUrl(artworkFileName);
             
             // Update all tracks in the album
+            const updatePromises = album.tracks.map(track => 
+                supabase
+                    .from('songs')
+                    .update({ artwork_url: publicUrl })
+                    .eq('id', track.id)
+            );
+            
+            await Promise.all(updatePromises);
+            
+            // Update local state
+            album.artwork = publicUrl;
             album.tracks.forEach(track => {
-                track.artwork = artworkURL;
+                track.artwork_url = publicUrl;
             });
             
-            saveToStorage();
             showAlbumDetail(album);
             renderCurrentView();
             showToast('Album artwork updated!', 'success');
-        };
-        reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error updating artwork:', error);
+            showToast('Failed to update artwork', 'error');
+        }
     });
     
     input.click();
 };
 
-function renameAlbum(albumId, newTitle) {
+async function renameAlbum(albumId, newTitle) {
     const album = AppState.albums[albumId];
     if (!album) return;
     
-    album.title = newTitle;
-    
-    // Update all tracks in the album
-    album.tracks.forEach(track => {
-        track.album = newTitle;
-    });
-    
-    saveToStorage();
-    renderAlbums();
-    showToast('Album renamed!', 'success');
+    try {
+        // Update all tracks in the album
+        const updatePromises = album.tracks.map(track => 
+            supabase
+                .from('songs')
+                .update({ album: newTitle })
+                .eq('id', track.id)
+        );
+        
+        await Promise.all(updatePromises);
+        
+        album.title = newTitle;
+        album.tracks.forEach(track => {
+            track.album = newTitle;
+        });
+        
+        organizeAlbums();
+        renderAlbums();
+        showToast('Album renamed!', 'success');
+    } catch (error) {
+        console.error('Error renaming album:', error);
+        showToast('Failed to rename album', 'error');
+    }
 }
 
 // ===================================
@@ -930,20 +1302,18 @@ function playSong(index) {
     
     if (!audioPlayer || !player) return;
     
-    // Check if we have a valid URL
-    if (!AppState.currentTrack.url) {
+    if (!AppState.currentTrack.audio_url) {
         showToast('Cannot play this track - file not found', 'error');
         return;
     }
     
-    audioPlayer.src = AppState.currentTrack.url;
+    audioPlayer.src = AppState.currentTrack.audio_url;
     
     if (playerArtwork) {
-        playerArtwork.src = AppState.currentTrack.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%23282828\' width=\'100\' height=\'100\'/%3E%3C/svg%3E';
+        playerArtwork.src = AppState.currentTrack.artwork_url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%23282828\' width=\'100\' height=\'100\'/%3E%3C/svg%3E';
         playerArtwork.crossOrigin = 'anonymous';
         
-        // Extract colors and update background
-        if (AppState.currentTrack.artwork) {
+        if (AppState.currentTrack.artwork_url) {
             playerArtwork.addEventListener('load', () => {
                 try {
                     const color = AppState.colorThief.getColor(playerArtwork);
@@ -958,9 +1328,8 @@ function playSong(index) {
     if (playerTitle) playerTitle.textContent = AppState.currentTrack.title;
     if (playerArtist) playerArtist.textContent = AppState.currentTrack.artist;
     
-    // Update favorite button
     if (favoritePlayerBtn) {
-        if (AppState.currentTrack.isFavorite) {
+        if (AppState.currentTrack.is_favorite) {
             favoritePlayerBtn.classList.add('active');
         } else {
             favoritePlayerBtn.classList.remove('active');
@@ -974,10 +1343,24 @@ function playSong(index) {
     audioPlayer.play().then(() => {
         AppState.isPlaying = true;
         updatePlayPauseButton();
+        
+        // Record listening history
+        recordListeningHistory(AppState.currentTrack.id);
     }).catch(error => {
         console.error('Playback error:', error);
-        showToast('Error playing track - file may no longer be available', 'error');
+        showToast('Error playing track', 'error');
     });
+}
+
+async function recordListeningHistory(songId) {
+    if (!AppState.currentUser) return;
+    
+    await supabase
+        .from('listening_history')
+        .insert([{
+            user_id: AppState.currentUser.id,
+            song_id: songId
+        }]);
 }
 
 function updateDynamicBackground(rgbColor) {
@@ -985,11 +1368,6 @@ function updateDynamicBackground(rgbColor) {
     if (!dynamicBg) return;
     
     const [r, g, b] = rgbColor;
-    const gradient = `
-        radial-gradient(circle at 20% 50%, rgba(${r}, ${g}, ${b}, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(${r}, ${g}, ${b}, 0.1) 0%, transparent 50%)
-    `;
-    
     dynamicBg.style.background = `linear-gradient(135deg, var(--bg-primary) 0%, rgba(${r}, ${g}, ${b}, 0.05) 100%)`;
     dynamicBg.classList.add('active');
 }
@@ -1116,32 +1494,39 @@ function updateProgress() {
     if (progressHandle) progressHandle.style.left = percent + '%';
     if (currentTime) currentTime.textContent = formatTime(audioPlayer.currentTime);
     
-    // Update synced lyrics
     updateSyncedLyrics(audioPlayer.currentTime);
 }
 
 // ===================================
 // FAVORITES
 // ===================================
-function toggleFavorite(songId) {
+async function toggleFavorite(songId) {
     const song = AppState.songs.find(s => s.id === songId);
     if (!song) return;
     
-    song.isFavorite = !song.isFavorite;
-    saveToStorage();
+    song.is_favorite = !song.is_favorite;
     
-    // Update UI
+    const { error } = await supabase
+        .from('songs')
+        .update({ is_favorite: song.is_favorite })
+        .eq('id', songId);
+    
+    if (error) {
+        showToast('Failed to update favorite', 'error');
+        song.is_favorite = !song.is_favorite; // Revert
+        return;
+    }
+    
     renderCurrentView();
     
-    // Update player button if this is the current track
     if (AppState.currentTrack && AppState.currentTrack.id === songId) {
         const favoritePlayerBtn = document.getElementById('favorite-player-btn');
         if (favoritePlayerBtn) {
-            favoritePlayerBtn.classList.toggle('active', song.isFavorite);
+            favoritePlayerBtn.classList.toggle('active', song.is_favorite);
         }
     }
     
-    showToast(song.isFavorite ? 'Added to favorites' : 'Removed from favorites', 'success');
+    showToast(song.is_favorite ? 'Added to favorites' : 'Removed from favorites', 'success');
 }
 
 // ===================================
@@ -1149,17 +1534,15 @@ function toggleFavorite(songId) {
 // ===================================
 function downloadSong(songId) {
     const song = AppState.songs.find(s => s.id === songId);
-    if (!song) return;
-    
-    if (!song.url) {
+    if (!song || !song.audio_url) {
         showToast('Cannot download - file not available', 'error');
         return;
     }
     
-    // Create a temporary link to download
     const a = document.createElement('a');
-    a.href = song.url;
+    a.href = song.audio_url;
     a.download = `${song.artist} - ${song.title}.mp3`;
+    a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1179,7 +1562,7 @@ function showLyricsModal() {
     if (!modal || !lyricsDisplay) return;
     
     if (AppState.currentTrack.lyrics) {
-        if (AppState.currentTrack.syncedLyrics) {
+        if (AppState.currentTrack.synced_lyrics) {
             lyricsDisplay.classList.add('synced');
             lyricsDisplay.innerHTML = parseSyncedLyrics(AppState.currentTrack.lyrics);
         } else {
@@ -1212,7 +1595,7 @@ function editLyrics() {
     
     if (AppState.currentTrack) {
         textarea.value = AppState.currentTrack.lyrics || '';
-        if (syncedToggle) syncedToggle.checked = AppState.currentTrack.syncedLyrics || false;
+        if (syncedToggle) syncedToggle.checked = AppState.currentTrack.synced_lyrics || false;
     }
     
     modal.classList.add('active');
@@ -1227,7 +1610,7 @@ function closeEditLyricsModal() {
 
 window.closeEditLyricsModal = closeEditLyricsModal;
 
-function saveLyrics() {
+async function saveLyrics() {
     if (!AppState.currentTrack) return;
     
     const textarea = document.getElementById('lyrics-textarea');
@@ -1239,11 +1622,22 @@ function saveLyrics() {
     const isSynced = syncedToggle ? syncedToggle.checked : false;
     
     AppState.currentTrack.lyrics = lyrics || null;
-    AppState.currentTrack.syncedLyrics = isSynced && lyrics;
+    AppState.currentTrack.synced_lyrics = isSynced && lyrics;
     
-    saveToStorage();
-    closeEditLyricsModal();
-    showToast('Lyrics saved!', 'success');
+    const { error } = await supabase
+        .from('songs')
+        .update({
+            lyrics: lyrics || null,
+            synced_lyrics: isSynced && lyrics
+        })
+        .eq('id', AppState.currentTrack.id);
+    
+    if (error) {
+        showToast('Failed to save lyrics', 'error');
+    } else {
+        closeEditLyricsModal();
+        showToast('Lyrics saved!', 'success');
+    }
 }
 
 window.saveLyrics = saveLyrics;
@@ -1284,7 +1678,6 @@ function updateSyncedLyrics(currentTime) {
         line.classList.toggle('active', index === activeIndex);
     });
     
-    // Scroll to active line
     if (activeIndex >= 0 && lines[activeIndex]) {
         lines[activeIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -1303,7 +1696,6 @@ function showContextMenu(event, target) {
     menu.style.top = event.pageY + 'px';
     menu.classList.add('active');
     
-    // Setup menu item handlers
     menu.querySelectorAll('.context-menu-item').forEach(item => {
         item.onclick = () => handleContextMenuAction(item.dataset.action);
     });
@@ -1381,7 +1773,7 @@ function handleContextMenuAction(action) {
     closeContextMenu();
 }
 
-function changeSongArtwork(songId) {
+async function changeSongArtwork(songId) {
     const song = AppState.songs.find(s => s.id === songId);
     if (!song) return;
     
@@ -1389,18 +1781,37 @@ function changeSongArtwork(songId) {
     input.type = 'file';
     input.accept = 'image/*';
     
-    input.addEventListener('change', (e) => {
+    input.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            song.artwork = event.target.result;
-            saveToStorage();
+        try {
+            const artworkFileName = `${AppState.currentUser.id}/${songId}-artwork.jpg`;
+            const { error: uploadError } = await supabase.storage
+                .from('music-files')
+                .upload(artworkFileName, file, { upsert: true });
+            
+            if (uploadError) throw uploadError;
+            
+            const { data: { publicUrl } } = supabase.storage
+                .from('music-files')
+                .getPublicUrl(artworkFileName);
+            
+            const { error: dbError } = await supabase
+                .from('songs')
+                .update({ artwork_url: publicUrl })
+                .eq('id', songId);
+            
+            if (dbError) throw dbError;
+            
+            song.artwork_url = publicUrl;
+            organizeAlbums();
             renderCurrentView();
             showToast('Song artwork updated!', 'success');
-        };
-        reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error updating artwork:', error);
+            showToast('Failed to update artwork', 'error');
+        }
     });
     
     input.click();
@@ -1443,7 +1854,7 @@ function sortContent(sortBy) {
             break;
         case 'recent':
         default:
-            AppState.songs.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
+            AppState.songs.sort((a, b) => new Date(b.date_added || b.dateAdded) - new Date(a.date_added || a.dateAdded));
             break;
     }
     
@@ -1453,60 +1864,74 @@ function sortContent(sortBy) {
 // ===================================
 // DELETE
 // ===================================
-function deleteSong(songId) {
-    if (!confirm('Delete this song?')) return;
+async function deleteSong(songId) {
+    if (!confirm('Delete this song permanently?')) return;
     
-    AppState.songs = AppState.songs.filter(s => s.id !== songId);
-    organizeAlbums();
-    saveToStorage();
-    renderCurrentView();
-    updateStorageInfo();
-    showToast('Song deleted', 'success');
-}
-
-// ===================================
-// STORAGE
-// ===================================
-function saveToStorage() {
-    const songsToSave = AppState.songs.map(song => ({
-        id: song.id,
-        title: song.title,
-        artist: song.artist,
-        album: song.album,
-        year: song.year,
-        track: song.track,
-        duration: song.duration,
-        dateAdded: song.dateAdded,
-        isFavorite: song.isFavorite,
-        lyrics: song.lyrics,
-        syncedLyrics: song.syncedLyrics,
-        url: song.url,
-        artwork: song.artwork
-    }));
+    const song = AppState.songs.find(s => s.id === songId);
+    if (!song) return;
     
     try {
-        localStorage.setItem('musicvault_songs', JSON.stringify(songsToSave));
-        localStorage.setItem('musicvault_albums_order', JSON.stringify(Object.keys(AppState.albums)));
+        // Delete from database
+        const { error: dbError } = await supabase
+            .from('songs')
+            .delete()
+            .eq('id', songId);
+        
+        if (dbError) throw dbError;
+        
+        // Delete audio file from storage
+        const audioFileName = `${AppState.currentUser.id}/${songId}.mp3`;
+        await supabase.storage
+            .from('music-files')
+            .remove([audioFileName]);
+        
+        // Delete artwork if exists
+        if (song.artwork_url) {
+            const artworkFileName = `${AppState.currentUser.id}/${songId}-artwork.jpg`;
+            await supabase.storage
+                .from('music-files')
+                .remove([artworkFileName]);
+        }
+        
+        // Remove from local state
+        AppState.songs = AppState.songs.filter(s => s.id !== songId);
+        organizeAlbums();
+        renderCurrentView();
+        updateStorageInfo();
+        showToast('Song deleted', 'success');
     } catch (error) {
-        console.error('Failed to save to storage:', error);
-        showToast('Failed to save - storage may be full', 'error');
+        console.error('Delete error:', error);
+        showToast('Failed to delete song', 'error');
     }
 }
 
-function loadFromStorage() {
+window.deleteSong = deleteSong;
+
+// ===================================
+// SUPABASE STORAGE
+// ===================================
+async function loadFromSupabase() {
+    if (!AppState.currentUser) return;
+    
     try {
-        const saved = localStorage.getItem('musicvault_songs');
-        if (saved) {
-            const loadedSongs = JSON.parse(saved);
-            // Restore the songs with all their data including URLs and artwork
-            AppState.songs = loadedSongs.map(song => ({
-                ...song,
-                file: null // File object can't be stored, but we have the URL
-            }));
-            organizeAlbums();
-        }
+        const { data, error } = await supabase
+            .from('songs')
+            .select('*')
+            .eq('user_id', AppState.currentUser.id)
+            .order('date_added', { ascending: false });
+        
+        if (error) throw error;
+        
+        AppState.songs = data.map(song => ({
+            ...song,
+            dateAdded: song.date_added
+        }));
+        
+        organizeAlbums();
+        renderCurrentView();
+        updateStorageInfo();
     } catch (error) {
-        console.error('Failed to load from storage:', error);
+        console.error('Failed to load from Supabase:', error);
         showToast('Failed to load library', 'error');
     }
 }
