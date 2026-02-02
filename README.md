@@ -1,0 +1,2 @@
+# SpinFORM
+Ai generated 
