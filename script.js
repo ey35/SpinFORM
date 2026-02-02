@@ -2,7 +2,7 @@
 // SUPABASE CONFIGURATION
 // ===================================
 const SUPABASE_URL = 'https://xarkfpnknrrlbragmrcl.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_COMPLETE_ANON_KEY_HERE'; // Make sure this is complete
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhcmtmcG5rbnJybGJyYWdtcmNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNjM5ODMsImV4cCI6MjA4NTYzOTk4M30.5akqqycJUOmpoON2adRwogq_0NmzsiJp7fb3CDb53aQE'; // Make sure this is complete
 
 let supabase = null;
 
