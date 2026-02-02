@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpinForm - Music, Made Physical Again</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=IBM+Plex+Mono:wght@300;400;600&family=Permanent+Marker&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Floating Dust Particles -->
+    <div class="dust-container" id="dustContainer"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <div class="logo">SPINFORM</div>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#formats">Formats</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#gallery">Gallery</a></li>
+                <li><a href="#" id="uploadBtn">Upload</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <h1 class="hero-title">Upload a song. Choose a format. Press play.</h1>
+        <p class="hero-subtitle">Digital audio brought to life through beautifully animated, customizable physical formats</p>
+        
+        <!-- Vinyl Turntable -->
+        <div class="vinyl-container">
+            <div class="turntable">
+                <div class="turntable-base">
+                    <div class="vinyl-record">
+                        <div class="grooves" id="grooves"></div>
+                        <div class="vinyl-label">
+                            SPINFORM<br>RECORDS
+                        </div>
+                        <div class="vinyl-center-hole"></div>
+                    </div>
+                    <div class="tonearm"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="hero-buttons">
+            <button class="btn btn-primary" id="heroUploadBtn">Upload Music</button>
+            <button class="btn btn-secondary" id="exploreBtn">Explore Gallery</button>
+        </div>
+    </section>
+
+    <!-- Formats Preview Section -->
+    <section class="formats-section" id="formats">
+        <h2 class="formats-title">Choose Your Format</h2>
+        <div class="formats-scroll">
+            <div class="format-card" data-format="vinyl">
+                <div class="format-icon">💿</div>
+                <h3 class="format-name">Vinyl</h3>
+                <p class="format-description">Classic 33⅓ RPM turntable experience with authentic groove animation</p>
+            </div>
+            <div class="format-card" data-format="cassette">
+                <div class="format-icon">📼</div>
+                <h3 class="format-name">Cassette</h3>
+                <p class="format-description">Retro tape deck with spinning reels and magnetic nostalgia</p>
+            </div>
+            <div class="format-card" data-format="cd">
+                <div class="format-icon">💽</div>
+                <h3 class="format-name">CD</h3>
+                <p class="format-description">Digital perfection with rainbow reflections and laser precision</p>
+            </div>
+            <div class="format-card" data-format="8track">
+                <div class="format-icon">🎵</div>
+                <h3 class="format-name">8-Track</h3>
+                <p class="format-description">Dashboard classic with program switching and mechanical clicks</p>
+            </div>
+            <div class="format-card" data-format="minidisc">
+                <div class="format-icon">💾</div>
+                <h3 class="format-name">MiniDisc</h3>
+                <p class="format-description">90s tech marvel with digital recording and optical storage</p>
+            </div>
+            <div class="format-card" data-format="reel">
+                <div class="format-icon">🎞️</div>
+                <h3 class="format-name">Reel-to-Reel</h3>
+                <p class="format-description">Studio-grade magnetic tape with professional sound</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section" id="features">
+        <h2 class="formats-title">Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <span class="feature-icon">🎬</span>
+                <h3 class="feature-title">Real-Time Animation</h3>
+                <p class="feature-text">Watch your music play with physics-based movements, spinning records, and audio-reactive elements that respond to every beat.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🎨</span>
+                <h3 class="feature-title">Full Customization</h3>
+                <p class="feature-text">Design your own vinyl colors, cassette shells, CD labels, and add custom artwork. Make every format uniquely yours.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">📤</span>
+                <h3 class="feature-title">Share & Export</h3>
+                <p class="feature-text">Generate shareable links, export looping videos for social media, or embed players directly on your website.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🎵</span>
+                <h3 class="feature-title">Authentic Sound</h3>
+                <p class="feature-text">Optional vinyl crackle, tape hiss, mechanical clicks, and motor hum create the complete nostalgic experience.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">💽</span>
+                <h3 class="feature-title">Album Mode</h3>
+                <p class="feature-text">Full album support with Side A/B for vinyl, auto-flip for cassettes, and program switching for 8-tracks.</p>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon">🌍</span>
+                <h3 class="feature-title">Community Gallery</h3>
+                <p class="feature-text">Browse, discover, and get inspired by creations from artists and collectors worldwide.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Gallery Section -->
+    <section class="gallery-section" id="gallery">
+        <h2 class="formats-title">Community Gallery</h2>
+        <div class="gallery-filters">
+            <button class="filter-btn active" data-filter="all">All Formats</button>
+            <button class="filter-btn" data-filter="vinyl">Vinyl</button>
+            <button class="filter-btn" data-filter="cassette">Cassette</button>
+            <button class="filter-btn" data-filter="cd">CD</button>
+            <button class="filter-btn" data-filter="8track">8-Track</button>
+        </div>
+        <div class="gallery-grid">
+            <div class="gallery-item" data-format="vinyl">
+                <div class="gallery-thumbnail">
+                    <div class="gallery-vinyl"></div>
+                </div>
+                <div class="gallery-info">
+                    <h4>Midnight Dreams</h4>
+                    <p>by NovaSound</p>
+                </div>
+            </div>
+            <div class="gallery-item" data-format="cassette">
+                <div class="gallery-thumbnail">
+                    <div class="gallery-cassette"></div>
+                </div>
+                <div class="gallery-info">
+                    <h4>Summer Mixtape '85</h4>
+                    <p>by RetroWave</p>
+                </div>
+            </div>
+            <div class="gallery-item" data-format="cd">
+                <div class="gallery-thumbnail">
+                    <div class="gallery-cd"></div>
+                </div>
+                <div class="gallery-info">
+                    <h4>Digital Horizons</h4>
+                    <p>by CyberGroove</p>
+                </div>
+            </div>
+            <div class="gallery-item" data-format="vinyl">
+                <div class="gallery-thumbnail">
+                    <div class="gallery-vinyl purple"></div>
+                </div>
+                <div class="gallery-info">
+                    <h4>Purple Haze Sessions</h4>
+                    <p>by VinylCollective</p>
+                </div>
+            </div>
+            <div class="gallery-item" data-format="8track">
+                <div class="gallery-thumbnail">
+                    <div class="gallery-8track"></div>
+                </div>
+                <div class="gallery-info">
+                    <h4>Highway Classics</h4>
+                    <p>by RoadTrip</p>
+                </div>
+            </div>
+            <div class="gallery-item" data-format="cassette">
+                <div class="gallery-thumbnail">
+                    <div class="gallery-cassette transparent"></div>
+                </div>
+                <div class="gallery-info">
+                    <h4>Lo-Fi Beats</h4>
+                    <p>by ChillStation</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Player Interface -->
+    <section class="player-section" id="player">
+        <div class="player-container">
+            <div class="player-header">
+                <h2 class="player-title">Now Playing</h2>
+                <button class="btn-close" id="closePlayer">×</button>
+            </div>
+            
+            <div class="player-display">
+                <div class="player-vinyl-display">
+                    <div class="player-vinyl-record rotating">
+                        <div class="player-vinyl-label">
+                            <span id="albumArt">🎵</span>
+                        </div>
+                    </div>
+                    <div class="player-tonearm"></div>
+                </div>
+            </div>
+
+            <div class="track-info">
+                <h3 id="trackName">No Track Loaded</h3>
+                <p id="artistName">Upload a song to begin</p>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+                <div class="progress-handle" id="progressHandle"></div>
+            </div>
+
+            <div class="time-display">
+                <span id="currentTime">0:00</span>
+                <span id="totalTime">0:00</span>
+            </div>
+
+            <div class="player-controls">
+                <button class="control-btn" id="prevBtn">⏮</button>
+                <button class="control-btn" id="playPauseBtn">▶</button>
+                <button class="control-btn play" id="mainPlayBtn">▶</button>
+                <button class="control-btn" id="nextBtn">⏭</button>
+                <button class="control-btn" id="shuffleBtn">🔀</button>
+            </div>
+
+            <div class="volume-control">
+                <span class="volume-icon">🔊</span>
+                <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70">
+            </div>
+
+            <div class="customize-panel">
+                <button class="btn btn-secondary" id="customizeBtn">Customize Format</button>
+                <button class="btn btn-secondary" id="exportBtn">Export & Share</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Upload Modal -->
+    <div class="upload-modal" id="uploadModal">
+        <div class="upload-content">
+            <button class="close-modal" id="closeModal">×</button>
+            <h2 class="upload-title">Upload Your Music</h2>
+            <p class="upload-subtitle">Drag and drop your audio files or click to browse</p>
+            
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">🎵</div>
+                <p class="upload-text">Drop your audio files here</p>
+                <p class="upload-subtext">Supports MP3, WAV, FLAC, and more</p>
+                <input type="file" id="fileInput" accept="audio/*" multiple style="display: none;">
+                <button class="btn btn-primary" id="browseBtn">Browse Files</button>
+            </div>
+
+            <div class="file-list" id="fileList"></div>
+
+            <div class="format-selection">
+                <h3>Choose Your Format</h3>
+                <div class="format-options">
+                    <label class="format-option">
+                        <input type="radio" name="format" value="vinyl" checked>
+                        <span class="format-option-content">
+                            <span class="format-option-icon">💿</span>
+                            <span class="format-option-name">Vinyl</span>
+                        </span>
+                    </label>
+                    <label class="format-option">
+                        <input type="radio" name="format" value="cassette">
+                        <span class="format-option-content">
+                            <span class="format-option-icon">📼</span>
+                            <span class="format-option-name">Cassette</span>
+                        </span>
+                    </label>
+                    <label class="format-option">
+                        <input type="radio" name="format" value="cd">
+                        <span class="format-option-content">
+                            <span class="format-option-icon">💽</span>
+                            <span class="format-option-name">CD</span>
+                        </span>
+                    </label>
+                    <label class="format-option">
+                        <input type="radio" name="format" value="8track">
+                        <span class="format-option-content">
+                            <span class="format-option-icon">🎵</span>
+                            <span class="format-option-name">8-Track</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="startPlayingBtn" disabled>Start Playing</button>
+        </div>
+    </div>
+
+    <!-- Customization Panel -->
+    <div class="customization-sidebar" id="customizationSidebar">
+        <div class="sidebar-header">
+            <h3>Customize Format</h3>
+            <button class="close-sidebar" id="closeSidebar">×</button>
+        </div>
+        
+        <div class="sidebar-content">
+            <div class="custom-section">
+                <h4>Vinyl Color</h4>
+                <div class="color-options">
+                    <button class="color-btn active" data-color="black" style="background: #1a1a1a;"></button>
+                    <button class="color-btn" data-color="red" style="background: #ff3b3b;"></button>
+                    <button class="color-btn" data-color="blue" style="background: #3b5bff;"></button>
+                    <button class="color-btn" data-color="purple" style="background: #a03bff;"></button>
+                    <button class="color-btn" data-color="clear" style="background: linear-gradient(45deg, #f0f0f0, #d0d0d0);"></button>
+                </div>
+            </div>
+
+            <div class="custom-section">
+                <h4>Label Text</h4>
+                <input type="text" class="custom-input" id="labelText" placeholder="Enter label text" value="SPINFORM RECORDS">
+            </div>
+
+            <div class="custom-section">
+                <h4>Cover Art</h4>
+                <input type="file" id="coverArtInput" accept="image/*" style="display: none;">
+                <button class="btn btn-secondary" id="uploadCoverBtn">Upload Cover Art</button>
+            </div>
+
+            <div class="custom-section">
+                <h4>Wear & Aging</h4>
+                <input type="range" class="custom-slider" id="wearSlider" min="0" max="100" value="0">
+                <span class="slider-value">0%</span>
+            </div>
+
+            <div class="custom-section">
+                <h4>Audio Effects</h4>
+                <label class="toggle-option">
+                    <input type="checkbox" id="crackleToggle">
+                    <span>Vinyl Crackle</span>
+                </label>
+                <label class="toggle-option">
+                    <input type="checkbox" id="motorToggle">
+                    <span>Motor Hum</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer" style="display: none;"></audio>
+    
+    <script src="script.js"></script>
+</body>
+</html>
