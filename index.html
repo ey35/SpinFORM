@@ -26,7 +26,7 @@
             <div class="header-info">
                 <div class="experiment-status">
                     <span class="status-dot"></span>
-                    <span class="status-text">Ready to Mix</span>
+                    <span class="status-text" id="statusText">Ready to Mix</span>
                 </div>
             </div>
         </div>
@@ -51,7 +51,7 @@
                     Welcome to Your Lab
                 </h2>
                 <p class="upload-subtitle">
-                    Upload 2+ tracks to start creating magic ✨
+                    Upload 1+ audio tracks to start creating magic ✨
                 </p>
                 
                 <div class="drop-zone" id="dropZone">
@@ -70,9 +70,9 @@
                     <span class="format-label">Supported:</span>
                     <span class="format-badge">MP3</span>
                     <span class="format-badge">WAV</span>
-                    <span class="format-badge">FLAC</span>
                     <span class="format-badge">OGG</span>
                     <span class="format-badge">M4A</span>
+                    <span class="format-badge">FLAC</span>
                 </div>
             </div>
         </section>
@@ -84,16 +84,16 @@
             <div class="track-slots">
                 <h3 class="section-title">
                     <span class="icon">🧪</span>
-                    Your Ingredients
+                    Your Tracks (<span id="trackCount">0</span>)
                 </h3>
                 
                 <div class="slots-container" id="slotsContainer">
                     <!-- Tracks will be added here -->
                 </div>
                 
-                <button class="add-slot-btn" id="addSlotBtn">
+                <button class="add-slot-btn" id="addMoreBtn">
                     <span class="btn-icon">➕</span>
-                    Add Another Track
+                    Add More Tracks
                 </button>
             </div>
 
@@ -135,35 +135,31 @@
                                 <span class="effect-icon">▶️</span>
                                 Play All
                             </button>
+                            <button class="effect-btn" id="pauseAllBtn">
+                                <span class="effect-icon">⏸️</span>
+                                Pause All
+                            </button>
                             <button class="effect-btn" id="stopAllBtn">
                                 <span class="effect-icon">⏹️</span>
                                 Stop All
-                            </button>
-                            <button class="effect-btn" id="soloModeBtn">
-                                <span class="effect-icon">🎧</span>
-                                Solo Mode
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Export Section -->
-            <div class="export-section">
+            <!-- Timeline Display -->
+            <div class="timeline-section">
                 <h3 class="section-title">
-                    <span class="icon">💾</span>
-                    Export Your Mix
+                    <span class="icon">⏱️</span>
+                    Playback Progress
                 </h3>
-                
-                <div class="export-panel">
-                    <div class="export-info">
-                        <p class="export-text">Ready to save your masterpiece?</p>
-                        <p class="export-subtext">Download your mixed audio as a single file</p>
+                <div class="timeline-display">
+                    <span class="time-current" id="currentTime">0:00</span>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar"></div>
                     </div>
-                    <button class="btn btn-export" id="exportBtn" disabled>
-                        <span class="btn-icon">💾</span>
-                        Export Mix
-                    </button>
+                    <span class="time-total" id="totalTime">0:00</span>
                 </div>
             </div>
 
@@ -176,7 +172,7 @@
         <div class="modal-overlay" id="modalOverlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Track Settings</h3>
+                <h3 class="modal-title" id="modalTitle">Track Settings</h3>
                 <button class="modal-close" id="closeModal">✕</button>
             </div>
             
@@ -190,33 +186,52 @@
                         <span class="info-label">Duration:</span>
                         <span class="info-value" id="modalDuration">--</span>
                     </div>
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value" id="modalStatus">--</span>
+                    </div>
                 </div>
                 
                 <div class="modal-controls">
                     <div class="control-group">
-                        <label class="control-label">Volume</label>
+                        <label class="control-label">Volume: <span id="modalVolumeDisplay">100%</span></label>
                         <input type="range" class="slider" id="modalVolume" min="0" max="100" value="100">
-                        <span class="slider-value" id="modalVolumeValue">100%</span>
                     </div>
                     
                     <div class="control-group">
-                        <label class="control-label">Pan (Left/Right)</label>
+                        <label class="control-label">Pan (Left/Right): <span id="modalPanDisplay">Center</span></label>
                         <input type="range" class="slider" id="modalPan" min="-100" max="100" value="0">
-                        <span class="slider-value" id="modalPanValue">Center</span>
                     </div>
                     
                     <div class="control-group">
-                        <label class="control-label">Playback Rate</label>
-                        <input type="range" class="slider" id="modalRate" min="50" max="200" value="100">
-                        <span class="slider-value" id="modalRateValue">100%</span>
+                        <label class="control-label">Playback Speed: <span id="modalRateDisplay">1.0x</span></label>
+                        <input type="range" class="slider" id="modalRate" min="25" max="200" value="100" step="25">
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label">Loop Track</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="modalLoop">
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
                 </div>
             </div>
             
             <div class="modal-footer">
-                <button class="btn btn-remove" id="removeTrackBtn">Remove Track</button>
-                <button class="btn btn-primary" id="applySettingsBtn">Apply</button>
+                <button class="btn btn-remove" id="removeTrackBtn">🗑️ Remove Track</button>
+                <button class="btn btn-primary" id="closeModalBtn">Done</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal" id="loadingModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content loading-content">
+            <div class="loading-spinner"></div>
+            <h3 class="loading-title">Processing Audio...</h3>
+            <p class="loading-text" id="loadingText">Please wait</p>
         </div>
     </div>
 
