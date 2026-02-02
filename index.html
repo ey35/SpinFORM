@@ -3,243 +3,190 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MixLab - Your Personal Music Laboratory</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=JetBrains+Mono:wght@400;700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <title>SoundVault - Your Music Collection</title>
     <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Lab Background -->
-    <div class="lab-background">
-        <div class="grid-lines"></div>
-        <div class="lab-particles" id="particles"></div>
-    </div>
-
+    <!-- Background Elements -->
+    <div class="bg-gradient"></div>
+    <div class="grid-overlay"></div>
+    
     <!-- Header -->
     <header class="header">
-        <div class="header-content">
+        <div class="container">
             <div class="logo">
-                <span class="flask-icon">⚗️</span>
-                <h1 class="logo-text">MixLab</h1>
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="18" stroke="url(#gradient)" stroke-width="2"/>
+                    <circle cx="20" cy="20" r="6" fill="url(#gradient)"/>
+                    <path d="M20 2 L20 14" stroke="url(#gradient)" stroke-width="2"/>
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#FF006E"/>
+                            <stop offset="100%" style="stop-color:#8338EC"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>SoundVault</h1>
             </div>
-            <div class="header-info">
-                <div class="experiment-status">
-                    <span class="status-dot"></span>
-                    <span class="status-text" id="statusText">Ready to Mix</span>
-                </div>
-            </div>
+            <nav class="nav">
+                <button class="nav-btn active" data-view="library">
+                    <span class="icon">🎵</span>
+                    Library
+                </button>
+                <button class="nav-btn" data-view="upload">
+                    <span class="icon">⬆️</span>
+                    Upload
+                </button>
+                <button class="nav-btn" data-view="shared">
+                    <span class="icon">🔗</span>
+                    Shared
+                </button>
+            </nav>
         </div>
     </header>
 
     <!-- Main Content -->
     <main class="main-content">
-        
-        <!-- Upload Zone (Shown when empty) -->
-        <section class="upload-zone-section" id="uploadZoneSection">
-            <div class="upload-container">
-                <div class="beaker-animation">
-                    <div class="beaker">
-                        <div class="liquid"></div>
-                        <div class="bubble b1"></div>
-                        <div class="bubble b2"></div>
-                        <div class="bubble b3"></div>
+        <div class="container">
+            <!-- Library View -->
+            <section id="library-view" class="view active">
+                <div class="view-header">
+                    <h2 class="section-title">Your Collection</h2>
+                    <div class="controls">
+                        <input type="text" id="search-input" class="search-input" placeholder="Search tracks...">
+                        <select id="sort-select" class="sort-select">
+                            <option value="recent">Recently Added</option>
+                            <option value="name">Track Name</option>
+                            <option value="artist">Artist</option>
+                        </select>
                     </div>
                 </div>
                 
-                <h2 class="upload-title">
-                    Welcome to Your Lab
-                </h2>
-                <p class="upload-subtitle">
-                    Upload 1+ audio tracks to start creating magic ✨
-                </p>
-                
-                <div class="drop-zone" id="dropZone">
-                    <div class="drop-zone-content">
-                        <div class="upload-icon">📂</div>
-                        <p class="drop-text">Drag & Drop Your Audio Files</p>
-                        <p class="drop-subtext">or click to browse</p>
-                        <input type="file" id="fileInput" accept="audio/*" multiple style="display: none;">
-                        <button class="btn btn-upload" id="browseBtn">
-                            <span>Choose Files</span>
-                        </button>
-                    </div>
+                <div id="music-grid" class="music-grid">
+                    <!-- Music items will be dynamically inserted here -->
                 </div>
                 
-                <div class="supported-formats">
-                    <span class="format-label">Supported:</span>
-                    <span class="format-badge">MP3</span>
-                    <span class="format-badge">WAV</span>
-                    <span class="format-badge">OGG</span>
-                    <span class="format-badge">M4A</span>
-                    <span class="format-badge">FLAC</span>
+                <div id="empty-state" class="empty-state">
+                    <div class="empty-icon">🎧</div>
+                    <h3>Your vault is empty</h3>
+                    <p>Upload your first track to get started</p>
+                    <button class="btn-primary" onclick="switchView('upload')">Upload Music</button>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Lab Interface (Shown after upload) -->
-        <section class="lab-interface" id="labInterface">
-            
-            <!-- Track Slots -->
-            <div class="track-slots">
-                <h3 class="section-title">
-                    <span class="icon">🧪</span>
-                    Your Tracks (<span id="trackCount">0</span>)
-                </h3>
-                
-                <div class="slots-container" id="slotsContainer">
-                    <!-- Tracks will be added here -->
+            <!-- Upload View -->
+            <section id="upload-view" class="view">
+                <div class="view-header">
+                    <h2 class="section-title">Upload Music</h2>
                 </div>
                 
-                <button class="add-slot-btn" id="addMoreBtn">
-                    <span class="btn-icon">➕</span>
-                    Add More Tracks
-                </button>
-            </div>
-
-            <!-- Mixing Console -->
-            <div class="mixing-console">
-                <h3 class="section-title">
-                    <span class="icon">🎛️</span>
-                    Mixing Console
-                </h3>
-                
-                <div class="console-tracks" id="consoleTracks">
-                    <!-- Individual track controls added dynamically -->
-                </div>
-            </div>
-
-            <!-- Master Controls -->
-            <div class="master-controls">
-                <h3 class="section-title">
-                    <span class="icon">🎚️</span>
-                    Master Output
-                </h3>
-                
-                <div class="master-panel">
-                    <div class="master-visualizer">
-                        <canvas id="masterVisualizer"></canvas>
+                <div class="upload-container">
+                    <div class="upload-zone" id="upload-zone">
+                        <input type="file" id="file-input" accept="audio/*" multiple hidden>
+                        <div class="upload-content">
+                            <div class="upload-icon">
+                                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                                    <path d="M40 10 L40 50 M20 30 L40 10 L60 30" stroke="url(#gradient2)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15 50 L15 65 C15 67.7614 17.2386 70 20 70 L60 70 C62.7614 70 65 67.7614 65 65 L65 50" stroke="url(#gradient2)" stroke-width="4" stroke-linecap="round"/>
+                                    <defs>
+                                        <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#FF006E"/>
+                                            <stop offset="100%" style="stop-color:#8338EC"/>
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                            </div>
+                            <h3>Drop your music files here</h3>
+                            <p>or click to browse</p>
+                            <span class="supported-formats">Supports MP3, WAV, OGG, M4A</span>
+                        </div>
                     </div>
                     
-                    <div class="master-settings">
-                        <div class="control-group">
-                            <label class="control-label">Master Volume</label>
-                            <div class="slider-container">
-                                <input type="range" class="slider master-slider" id="masterVolume" min="0" max="100" value="80">
-                                <span class="slider-value" id="masterVolumeValue">80%</span>
-                            </div>
-                        </div>
-                        
-                        <div class="effect-toggles">
-                            <button class="effect-btn" id="playAllBtn">
-                                <span class="effect-icon">▶️</span>
-                                Play All
-                            </button>
-                            <button class="effect-btn" id="pauseAllBtn">
-                                <span class="effect-icon">⏸️</span>
-                                Pause All
-                            </button>
-                            <button class="effect-btn" id="stopAllBtn">
-                                <span class="effect-icon">⏹️</span>
-                                Stop All
-                            </button>
-                        </div>
-                    </div>
+                    <div id="upload-queue" class="upload-queue"></div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Timeline Display -->
-            <div class="timeline-section">
-                <h3 class="section-title">
-                    <span class="icon">⏱️</span>
-                    Playback Progress
-                </h3>
-                <div class="timeline-display">
-                    <span class="time-current" id="currentTime">0:00</span>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar" id="progressBar"></div>
-                    </div>
-                    <span class="time-total" id="totalTime">0:00</span>
+            <!-- Shared View -->
+            <section id="shared-view" class="view">
+                <div class="view-header">
+                    <h2 class="section-title">Shared With You</h2>
                 </div>
-            </div>
-
-        </section>
-
+                
+                <div id="shared-grid" class="music-grid">
+                    <!-- Shared music items will be dynamically inserted here -->
+                </div>
+                
+                <div id="shared-empty-state" class="empty-state">
+                    <div class="empty-icon">🔗</div>
+                    <h3>No shared tracks yet</h3>
+                    <p>When someone shares music with you, it will appear here</p>
+                </div>
+            </section>
+        </div>
     </main>
 
-    <!-- Track Detail Modal -->
-    <div class="modal" id="trackModal">
-        <div class="modal-overlay" id="modalOverlay"></div>
+    <!-- Player -->
+    <div id="player" class="player hidden">
+        <div class="player-content">
+            <div class="player-info">
+                <div class="album-art">
+                    <div class="vinyl-spin"></div>
+                </div>
+                <div class="track-info">
+                    <div class="track-name" id="player-track-name">Track Name</div>
+                    <div class="track-artist" id="player-track-artist">Artist Name</div>
+                </div>
+            </div>
+            
+            <div class="player-controls">
+                <button class="player-btn" id="prev-btn">⏮</button>
+                <button class="player-btn play-btn" id="play-btn">▶️</button>
+                <button class="player-btn" id="next-btn">⏭</button>
+            </div>
+            
+            <div class="player-progress">
+                <span class="time" id="current-time">0:00</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                    <input type="range" class="progress-slider" id="progress-slider" min="0" max="100" value="0">
+                </div>
+                <span class="time" id="duration-time">0:00</span>
+            </div>
+            
+            <div class="player-volume">
+                <button class="player-btn volume-btn" id="volume-btn">🔊</button>
+                <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="80">
+            </div>
+        </div>
+        <audio id="audio-player"></audio>
+    </div>
+
+    <!-- Modal for Sharing -->
+    <div id="share-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="modalTitle">Track Settings</h3>
-                <button class="modal-close" id="closeModal">✕</button>
+                <h3>Share Track</h3>
+                <button class="close-btn" onclick="closeShareModal()">&times;</button>
             </div>
-            
             <div class="modal-body">
-                <div class="track-info-display">
-                    <div class="info-item">
-                        <span class="info-label">Name:</span>
-                        <span class="info-value" id="modalTrackName">--</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Duration:</span>
-                        <span class="info-value" id="modalDuration">--</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Status:</span>
-                        <span class="info-value" id="modalStatus">--</span>
-                    </div>
+                <p class="modal-description">Generate a shareable link for this track</p>
+                <div class="share-link-container">
+                    <input type="text" id="share-link" class="share-link-input" readonly>
+                    <button class="btn-copy" id="copy-btn">Copy</button>
                 </div>
-                
-                <div class="modal-controls">
-                    <div class="control-group">
-                        <label class="control-label">Volume: <span id="modalVolumeDisplay">100%</span></label>
-                        <input type="range" class="slider" id="modalVolume" min="0" max="100" value="100">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label class="control-label">Pan (Left/Right): <span id="modalPanDisplay">Center</span></label>
-                        <input type="range" class="slider" id="modalPan" min="-100" max="100" value="0">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label class="control-label">Playback Speed: <span id="modalRateDisplay">1.0x</span></label>
-                        <input type="range" class="slider" id="modalRate" min="25" max="200" value="100" step="25">
-                    </div>
-
-                    <div class="control-group">
-                        <label class="control-label">Loop Track</label>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="modalLoop">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
+                <div class="share-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="allow-download">
+                        <span>Allow downloads</span>
+                    </label>
                 </div>
-            </div>
-            
-            <div class="modal-footer">
-                <button class="btn btn-remove" id="removeTrackBtn">🗑️ Remove Track</button>
-                <button class="btn btn-primary" id="closeModalBtn">Done</button>
             </div>
         </div>
     </div>
 
-    <!-- Loading Modal -->
-    <div class="modal" id="loadingModal">
-        <div class="modal-overlay"></div>
-        <div class="modal-content loading-content">
-            <div class="loading-spinner"></div>
-            <h3 class="loading-title">Processing Audio...</h3>
-            <p class="loading-text" id="loadingText">Please wait</p>
-        </div>
-    </div>
-
-    <!-- Notification Toast -->
-    <div class="toast" id="toast">
-        <span class="toast-icon" id="toastIcon">ℹ️</span>
-        <span class="toast-message" id="toastMessage"></span>
-    </div>
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="script.js"></script>
 </body>
