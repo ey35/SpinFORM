@@ -8,6 +8,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="vinyl-loader">
+                <div class="vinyl-disc">
+                    <div class="vinyl-center"></div>
+                    <div class="vinyl-groove"></div>
+                    <div class="vinyl-groove"></div>
+                    <div class="vinyl-groove"></div>
+                </div>
+                <div class="vinyl-arm"></div>
+            </div>
+            <h2 class="loading-text">SoundVault</h2>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+            <p class="loading-subtitle">Initializing your music vault...</p>
+        </div>
+    </div>
+
     <!-- Background Elements -->
     <div class="bg-gradient"></div>
     <div class="grid-overlay"></div>
@@ -41,6 +61,10 @@
                 <button class="nav-btn" data-view="shared">
                     <span class="icon">🔗</span>
                     Shared
+                </button>
+                <button class="nav-btn" data-view="discover">
+                    <span class="icon">🤖</span>
+                    AI Discover
                 </button>
             </nav>
         </div>
@@ -123,6 +147,23 @@
                     <p>When someone shares music with you, it will appear here</p>
                 </div>
             </section>
+
+            <!-- AI Recommendations View -->
+            <section id="discover-view" class="view">
+                <div class="view-header">
+                    <h2 class="section-title">AI Discovery</h2>
+                </div>
+                
+                <div class="ai-container">
+                    <div class="ai-prompt-box">
+                        <h3>🤖 Ask AI for Music Recommendations</h3>
+                        <textarea id="ai-prompt" placeholder="E.g., 'Find me upbeat electronic tracks perfect for coding' or 'Suggest chill ambient music for relaxation'..." rows="3"></textarea>
+                        <button class="btn-primary" onclick="getAIRecommendations()">Generate Recommendations</button>
+                    </div>
+                    
+                    <div id="ai-results" class="ai-results"></div>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -143,6 +184,13 @@
                 <button class="player-btn" id="prev-btn">⏮</button>
                 <button class="player-btn play-btn" id="play-btn">▶️</button>
                 <button class="player-btn" id="next-btn">⏭</button>
+                <button class="player-btn" id="shuffle-btn" title="Shuffle">🔀</button>
+                <button class="player-btn" id="repeat-btn" title="Repeat">🔁</button>
+            </div>
+            
+            <!-- Audio Visualizer -->
+            <div class="visualizer-container">
+                <canvas id="visualizer" width="800" height="60"></canvas>
             </div>
             
             <div class="player-progress">
