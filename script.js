@@ -2,16 +2,10 @@
 // SUPABASE CONFIGURATION
 // ===================================
 const SUPABASE_URL = 'https://xarkfpnknrrlbragmrcl.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhcmtmcG5rbnJybGJyYWdtcmNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNjM5ODMsImV4cCI6MjA4NTYzOTk4M30.5akqqycJUOmpoON2adRwogq_0NmzsiJp7fb3CDb53aQE'; // Make sure this is complete
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhcmtmcG5rbnJybGJyYWdtcmNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNjM5ODMsImV4cCI6MjA4NTYzOTk4M30.5akqqycJUOmpoON2adRwogq_0NmzsiJp7fb3CDb53aQ';
 
-let supabaseClient = null;
-
-// Initialize Supabase
-async function initSupabase() {
-    // Get createClient from the global supabase object loaded from CDN
-    const { createClient } = window.supabase;
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
+// Initialize Supabase client
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ===================================
 // STATE MANAGEMENT
@@ -51,9 +45,6 @@ window.addEventListener('load', () => {
 // ===================================
 document.addEventListener('DOMContentLoaded', async () => {
     AppState.colorThief = new ColorThief();
-    
-    // Initialize Supabase first
-    await initSupabase();
     
     // Check authentication
     await checkAuth();
@@ -127,12 +118,12 @@ window.switchAuthTab = function(tab) {
     tabs.forEach(t => t.classList.remove('active'));
     
     if (tab === 'login') {
-        loginForm.style.display = 'block';
+        loginForm.style.display = 'flex';
         signupForm.style.display = 'none';
         tabs[0].classList.add('active');
     } else {
         loginForm.style.display = 'none';
-        signupForm.style.display = 'block';
+        signupForm.style.display = 'flex';
         tabs[1].classList.add('active');
     }
 };
@@ -143,14 +134,18 @@ async function handleLogin(e) {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     
+    console.log('Attempting login...');
+    
     const { data, error } = await supabaseClient.auth.signInWithPassword({
         email,
         password
     });
     
     if (error) {
+        console.error('Login error:', error);
         showToast(error.message, 'error');
     } else {
+        console.log('Login successful:', data);
         AppState.currentUser = data.user;
         await loadFromSupabase();
         hideAuthScreen();
@@ -166,30 +161,35 @@ async function handleSignup(e) {
     const email = document.getElementById('signup-email').value;
     const password = document.getElementById('signup-password').value;
     
+    console.log('Attempting signup...');
+    
     // Sign up with Supabase Auth
     const { data, error } = await supabaseClient.auth.signUp({
         email,
-        password
+        password,
+        options: {
+            data: {
+                username: username,
+                display_name: username
+            }
+        }
     });
     
     if (error) {
+        console.error('Signup error:', error);
         showToast(error.message, 'error');
         return;
     }
     
-    // Create user record
-    const { error: userError } = await supabaseClient
-        .from('users')
-        .insert([{
-            id: data.user.id,
-            email,
-            username,
-            display_name: username
-        }]);
+    console.log('Signup successful:', data);
     
-    if (userError) {
-        showToast(userError.message, 'error');
-    } else {
+    // Check if email confirmation is required
+    if (data.user && !data.session) {
+        showToast('Please check your email to confirm your account!', 'success');
+        return;
+    }
+    
+    if (data.user) {
         AppState.currentUser = data.user;
         hideAuthScreen();
         showApp();
