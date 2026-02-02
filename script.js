@@ -357,6 +357,12 @@ async function processUploadQueue() {
     
     const isAlbum = AppState.uploadType === 'album';
     
+    // If Supabase client exists, ensure the storage bucket is available before starting uploads
+    if (supabaseClient) {
+        const ok = await ensureBucketExists('music-files');
+        if (!ok) return; // user was already notified
+    }
+    
     for (const file of AppState.pendingFiles) {
         if (!file.type.startsWith('audio/')) {
             showToast('Only audio files are supported', 'error');
@@ -394,6 +400,16 @@ function createUploadItem(file) {
 }
 
 async function processAudioFile(file, uploadItem, isAlbum = false) {
+    // Ensure storage bucket exists before attempting uploads
+    if (supabaseClient) {
+        const ok = await ensureBucketExists('music-files');
+        if (!ok) {
+            showToast('Upload aborted: storage bucket unavailable', 'error');
+            uploadItem.remove();
+            throw new Error('Storage bucket unavailable');
+        }
+    }
+
     return new Promise((resolve, reject) => {
         const progressFill = uploadItem.querySelector('.upload-progress-fill');
         const statusText = uploadItem.querySelector('p');
@@ -1113,6 +1129,9 @@ window.changeAlbumArtwork = async function(albumId) {
     input.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+    // Ensure the storage bucket exists before attempting upload
+    const ok = await ensureBucketExists('music-files');
+    if (!ok) return;
         
         try {
             // Upload to Supabase Storage
@@ -1687,6 +1706,9 @@ async function changeSongArtwork(songId) {
     input.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+    // Ensure the storage bucket exists before attempting upload
+    const ok = await ensureBucketExists('music-files');
+    if (!ok) return;
         
         try {
             const artworkFileName = `${getUserId()}/${songId}-artwork.jpg`;
@@ -1848,6 +1870,28 @@ function updateStorageInfo() {
     
     if (storageFill) storageFill.style.width = percent + '%';
     if (storageText) storageText.textContent = `${count} track${count === 1 ? '' : 's'}`;
+}
+
+// Check if a storage bucket exists and is accessible
+async function ensureBucketExists(bucketName) {
+    try {
+        // Try to list files in the bucket root as a lightweight check
+        const { data, error, status } = await supabaseClient.storage.from(bucketName).list('', { limit: 1 });
+        if (error) {
+            console.error('Storage bucket check failed:', error);
+            if (status === 404) {
+                showToast(`Storage bucket "${bucketName}" not found. Uploads are disabled.`, 'error');
+            } else {
+                showToast(`Cannot access storage bucket: ${error.message || 'unknown error'}`, 'error');
+            }
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Error checking bucket existence:', err);
+        showToast('Storage service unavailable', 'error');
+        return false;
+    }
 }
 
 // ===================================
