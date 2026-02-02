@@ -537,7 +537,15 @@ function createSongElement(song, index) {
     songItem.innerHTML = `
         <div class="song-number">${index + 1}</div>
         <div class="song-info">
-            <img class="song-artwork" src="${song.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%23282828\' width=\'100\' height=\'100\'/%3E%3C/svg%3E'}" alt="" crossorigin="anonymous">
+            <div class="song-artwork-container" title="Click to change cover art">
+                <img class="song-artwork" src="${song.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%23282828\' width=\'100\' height=\'100\'/%3E%3C/svg%3E'}" alt="" crossorigin="anonymous">
+                <div class="song-artwork-overlay-small">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
+                        <path d="M2 2h16v16H2V2zm3 3v9l3-3 3 3 3-3V5H5zm9 0h3v3h-3V5z"/>
+                        <path d="M10 8l-3 3h2v4h2v-4h2l-3-3z"/>
+                    </svg>
+                </div>
+            </div>
             <div class="song-text">
                 <div class="song-title">${escapeHtml(song.title)}</div>
                 <div class="song-artist">${escapeHtml(song.artist)}</div>
@@ -564,8 +572,15 @@ function createSongElement(song, index) {
         </div>
     `;
     
+    // Click on artwork to change it
+    const artworkContainer = songItem.querySelector('.song-artwork-container');
+    artworkContainer.addEventListener('click', (e) => {
+        e.stopPropagation();
+        changeSongArtwork(song.id);
+    });
+    
     songItem.addEventListener('click', (e) => {
-        if (!e.target.closest('.action-icon-btn')) {
+        if (!e.target.closest('.action-icon-btn') && !e.target.closest('.song-artwork-container')) {
             playSong(index);
         }
     });
@@ -624,7 +639,15 @@ function renderAlbums() {
         albumCard.className = 'album-card';
         albumCard.dataset.albumId = album.id;
         albumCard.innerHTML = `
-            <img class="album-artwork" src="${album.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 200 200\'%3E%3Crect fill=\'%23282828\' width=\'200\' height=\'200\'/%3E%3C/svg%3E'}" alt="" crossorigin="anonymous">
+            <div style="position: relative; cursor: pointer;" class="album-artwork-container">
+                <img class="album-artwork" src="${album.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 200 200\'%3E%3Crect fill=\'%23282828\' width=\'200\' height=\'200\'/%3E%3C/svg%3E'}" alt="" crossorigin="anonymous">
+                <div class="album-artwork-overlay">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="white">
+                        <path d="M4 4h24v24H4V4zm4 4v12l4-4 4 4 4-4V8H8zm12 0h4v4h-4V8z"/>
+                        <path d="M16 12l-4 4h2.5v5h3v-5H20l-4-4z"/>
+                    </svg>
+                </div>
+            </div>
             <div class="album-info">
                 <h3 contenteditable="false" class="album-title" data-album-id="${album.id}">${escapeHtml(album.title)}</h3>
                 <p>${escapeHtml(album.artist)}</p>
@@ -632,8 +655,16 @@ function renderAlbums() {
             </div>
         `;
         
+        // Click on artwork to change it
+        const artworkContainer = albumCard.querySelector('.album-artwork-container');
+        artworkContainer.addEventListener('click', (e) => {
+            e.stopPropagation();
+            changeAlbumArtwork(album.id);
+        });
+        
+        // Click on card to show album details (but not on artwork)
         albumCard.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('album-title')) {
+            if (!e.target.closest('.album-artwork-container') && !e.target.classList.contains('album-title')) {
                 showAlbumDetail(album);
             }
         });
@@ -712,10 +743,18 @@ function showAlbumDetail(album) {
     
     detailContent.innerHTML = `
         <div style="display: flex; gap: 2.5rem; margin-bottom: 3rem; align-items: flex-start;">
-            <div style="position: relative;">
+            <div style="position: relative; cursor: pointer;" onclick="changeAlbumArtwork('${album.id}')" title="Click to change cover art">
                 <img src="${album.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 200 200\'%3E%3Crect fill=\'%23282828\' width=\'200\' height=\'200\'/%3E%3C/svg%3E'}" 
-                     style="width: 220px; height: 220px; border-radius: var(--radius-lg); object-fit: cover; box-shadow: var(--shadow-lg);" alt="" crossorigin="anonymous">
-                <button class="btn-secondary" style="margin-top: 1rem; width: 100%;" onclick="changeAlbumArtwork('${album.id}')">Change Cover</button>
+                     style="width: 220px; height: 220px; border-radius: var(--radius-lg); object-fit: cover; box-shadow: var(--shadow-lg); transition: transform 0.3s ease;" 
+                     onmouseover="this.style.transform='scale(1.02)'" 
+                     onmouseout="this.style.transform='scale(1)'" 
+                     alt="" crossorigin="anonymous">
+                <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="white" style="pointer-events: none;">
+                        <path d="M6 6h36v36H6V6zm6 6v18l6-6 6 6 6-6v-12H12zm18 0h6v6h-6v-6z"/>
+                        <path d="M24 18l-6 6h4v8h4v-8h4l-6-6z"/>
+                    </svg>
+                </div>
             </div>
             <div style="flex: 1;">
                 <h2 style="font-size: 3rem; margin-bottom: 0.75rem; font-weight: 700;">${escapeHtml(album.title)}</h2>
@@ -886,8 +925,16 @@ function playSong(index) {
     const playerTitle = document.getElementById('player-title');
     const playerArtist = document.getElementById('player-artist');
     const favoritePlayerBtn = document.getElementById('favorite-player-btn');
+    const mainContent = document.querySelector('.main-content');
+    const sidebar = document.querySelector('.sidebar');
     
     if (!audioPlayer || !player) return;
+    
+    // Check if we have a valid URL
+    if (!AppState.currentTrack.url) {
+        showToast('Cannot play this track - file not found', 'error');
+        return;
+    }
     
     audioPlayer.src = AppState.currentTrack.url;
     
@@ -921,13 +968,15 @@ function playSong(index) {
     }
     
     player.classList.remove('hidden');
+    if (mainContent) mainContent.classList.add('player-active');
+    if (sidebar) sidebar.classList.add('player-active');
     
     audioPlayer.play().then(() => {
         AppState.isPlaying = true;
         updatePlayPauseButton();
     }).catch(error => {
         console.error('Playback error:', error);
-        showToast('Error playing track', 'error');
+        showToast('Error playing track - file may no longer be available', 'error');
     });
 }
 
@@ -1100,16 +1149,20 @@ function toggleFavorite(songId) {
 // ===================================
 function downloadSong(songId) {
     const song = AppState.songs.find(s => s.id === songId);
-    if (!song || !song.file) return;
+    if (!song) return;
     
-    const url = URL.createObjectURL(song.file);
+    if (!song.url) {
+        showToast('Cannot download - file not available', 'error');
+        return;
+    }
+    
+    // Create a temporary link to download
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `${song.artist} - ${song.title}.${song.file.name.split('.').pop()}`;
+    a.href = song.url;
+    a.download = `${song.artist} - ${song.title}.mp3`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
     
     showToast(`Downloading: ${song.title}`, 'success');
 }
@@ -1426,7 +1479,9 @@ function saveToStorage() {
         dateAdded: song.dateAdded,
         isFavorite: song.isFavorite,
         lyrics: song.lyrics,
-        syncedLyrics: song.syncedLyrics
+        syncedLyrics: song.syncedLyrics,
+        url: song.url,
+        artwork: song.artwork
     }));
     
     try {
@@ -1434,6 +1489,7 @@ function saveToStorage() {
         localStorage.setItem('musicvault_albums_order', JSON.stringify(Object.keys(AppState.albums)));
     } catch (error) {
         console.error('Failed to save to storage:', error);
+        showToast('Failed to save - storage may be full', 'error');
     }
 }
 
@@ -1441,11 +1497,17 @@ function loadFromStorage() {
     try {
         const saved = localStorage.getItem('musicvault_songs');
         if (saved) {
-            AppState.songs = JSON.parse(saved);
+            const loadedSongs = JSON.parse(saved);
+            // Restore the songs with all their data including URLs and artwork
+            AppState.songs = loadedSongs.map(song => ({
+                ...song,
+                file: null // File object can't be stored, but we have the URL
+            }));
             organizeAlbums();
         }
     } catch (error) {
         console.error('Failed to load from storage:', error);
+        showToast('Failed to load library', 'error');
     }
 }
 
