@@ -72,22 +72,16 @@ window.addEventListener('load', () => {
 document.addEventListener('DOMContentLoaded', async () => {
     AppState.colorThief = new ColorThief();
     
-    // Initialize Supabase client (wait for SDK) before auth check
+    // Initialize Supabase client (wait for SDK)
     try {
         await initSupabase();
     } catch (err) {
         console.error('Supabase init failed:', err);
-        // Still show auth screen (handlers won't be able to call supabase until SDK loads)
-        showAuthScreen();
-        setupEventListeners();
-        renderCurrentView();
-        updateStorageInfo();
-        setupDragAndDrop();
-        return;
+        showToast('Storage service unavailable - data will not persist', 'error');
     }
 
-    // Check authentication
-    await checkAuth();
+    // Set up anonymous/local user immediately
+    initializeUser();
     
     setupEventListeners();
     renderCurrentView();
@@ -96,83 +90,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ===================================
-// AUTHENTICATION
+// USER INITIALIZATION (NO AUTH)
 // ===================================
-async function checkAuth() {
-    // Accounts have been removed. Use a local default user so the app loads immediately.
+function initializeUser() {
+    // Generate or retrieve a persistent local user ID
+    let userId = localStorage.getItem('musicvault_user_id');
+    if (!userId) {
+        userId = 'user_' + generateId();
+        localStorage.setItem('musicvault_user_id', userId);
+    }
+    
     AppState.currentUser = {
-        id: 'local-user',
-        email: 'local@local'
+        id: userId,
+        email: 'local@musicvault.app'
     };
 
-    try {
-        await loadFromSupabase();
-    } catch (err) {
-        // If loading from Supabase fails, continue with an empty library
-        console.warn('loadFromSupabase failed (auth removed):', err);
+    // Load user's library from Supabase
+    if (supabaseClient) {
+        loadFromSupabase().catch(err => {
+            console.warn('Failed to load from Supabase:', err);
+        });
     }
-
-    showApp();
-}
-
-function showAuthScreen() {
-    // Accounts removed: do not render auth UI.
-    return;
-}
-
-window.switchAuthTab = function(tab) {
-    const loginForm = document.getElementById('login-form');
-    const signupForm = document.getElementById('signup-form');
-    const tabs = document.querySelectorAll('.auth-tab');
-    
-    tabs.forEach(t => t.classList.remove('active'));
-    
-    if (tab === 'login') {
-        loginForm.style.display = 'flex';
-        signupForm.style.display = 'none';
-        tabs[0].classList.add('active');
-    } else {
-        loginForm.style.display = 'none';
-        signupForm.style.display = 'flex';
-        tabs[1].classList.add('active');
-    }
-};
-async function handleLogin(e) {
-    // Accounts removed: simulate login by setting a local user and entering app
-    if (e && e.preventDefault) e.preventDefault();
-    AppState.currentUser = { id: 'local-user', email: 'local@local' };
-    try { await loadFromSupabase(); } catch (err) { /* ignore */ }
-    hideAuthScreen();
-    showApp();
-    showToast('Signed in (local)', 'success');
-}
-
-async function handleSignup(e) {
-    // Accounts removed: simulate signup by setting a local user and entering app
-    if (e && e.preventDefault) e.preventDefault();
-    AppState.currentUser = { id: 'local-user', email: 'local@local' };
-    try { await loadFromSupabase(); } catch (err) { /* ignore */ }
-    hideAuthScreen();
-    showApp();
-    showToast('Account created (local)', 'success');
-}
-
-function hideAuthScreen() {
-    const authScreen = document.getElementById('auth-screen');
-    if (authScreen) authScreen.remove();
-}
-
-function showApp() {
-    document.querySelector('.sidebar').style.display = 'flex';
-    document.querySelector('.main-content').style.display = 'block';
-}
-
-async function logout() {
-    // Accounts removed: just clear local state
-    AppState.currentUser = null;
-    AppState.songs = [];
-    AppState.albums = {};
-    location.reload();
 }
 
 function setupEventListeners() {
@@ -1314,7 +1252,7 @@ function playSong(index) {
 }
 
 async function recordListeningHistory(songId) {
-    if (!AppState.currentUser) return;
+    if (!AppState.currentUser || !supabaseClient) return;
     
     await supabaseClient
         .from('listening_history')
@@ -1872,7 +1810,7 @@ window.deleteSong = deleteSong;
 // SUPABASE STORAGE
 // ===================================
 async function loadFromSupabase() {
-    if (!AppState.currentUser) return;
+    if (!AppState.currentUser || !supabaseClient) return;
     
     try {
         const { data, error } = await supabaseClient
@@ -1906,24 +1844,6 @@ function updateStorageInfo() {
     
     if (storageFill) storageFill.style.width = percent + '%';
     if (storageText) storageText.textContent = `${count} track${count === 1 ? '' : 's'}`;
-}
-
-// Disable a button and show a countdown, then restore original text
-function startButtonCooldown(button, seconds, originalText) {
-    if (!button) return;
-    let remaining = seconds;
-    button.disabled = true;
-    const update = () => {
-        button.textContent = `${originalText} (${remaining}s)`;
-        remaining -= 1;
-        if (remaining < 0) {
-            button.disabled = false;
-            button.textContent = originalText;
-            clearInterval(timer);
-        }
-    };
-    update();
-    const timer = setInterval(update, 1000);
 }
 
 // ===================================
